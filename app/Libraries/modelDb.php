@@ -4,36 +4,53 @@ namespace App\Libraries;
 
 use CodeIgniter\Model;
 use CodeIgniter\Database\BaseConnection;
+use Config\Services;
 
+
+// 데이터 관련 통합 함수
 class modelDb
 {
-    /**
-     * 데이터 업데이트 처리 메서드
-     *
-     * @param Model $model
-     * @param int $id
-     * @param array $data
-     * @param array $where
-     * @return mixed
-     */
+
+
+    public function insert_MDB(Model $model, array $data)
+    {
+        if (!$model->insert($data, true)) {
+            log_message('error', '' . json_encode($model->errors()));
+            return false; // 유효성 검사 실패 시 에러 반환
+        }
+
+        // 성공 시 삽입된 레코드의 ID 반환
+        return $model->insertID();
+    }
+
+
     public function update_MDB(Model $model, int $id, array $data, array $where = [])
     {
-        // 현재 레코드를 제외한 유일성 검사 설정
+
         $updateValidationRules = $model->validationRules;
+
+        foreach ($updateValidationRules as $_key => $_value) {
+            // 비어있는 값도 허용하도록 설정
+            $updateValidationRules[(string)$_key] = str_replace("required", "permit_empty", (string)$_value);
+        }
+
         foreach ($model->is_unique_arr as $field) {
             if (isset($updateValidationRules[$field])) {
-                // 비어있는 값도 허용하도록 설정
-                $updateValstr = str_replace("required", "permit_empty", $updateValidationRules[$field]);
-                $updateValstr = str_replace("]", "", $updateValstr);
-
+                $updateValStr = rtrim($updateValidationRules[$field], ']'); // 마지막에 있는 ']' 제거
                 // 동적으로 is_unique 규칙을 추가하여 현재 레코드 제외
-                $updateValidationRules[$field] = $updateValstr . ",{$model->primaryKey},{$id}]";
+                $updateValidationRules[$field] = $updateValStr . ",{$model->primaryKey},{$id}]";
             }
         }
 
+        // 유효성 검사 인스턴스 생성 및 규칙 설정
+        $validation = Services::validation();
+        $validation->setRules($updateValidationRules, $model->validationMessages);
+
         // 유효성 검사 수행
-        if (!$model->validate($updateValidationRules, $data)) {
-            return $model->errors(); // 유효성 검사 실패 시 에러 반환
+        if (!$validation->run($data)) {
+            // 유효성 검사 실패 시 에러 반환
+            log_message('error', '' . json_encode($validation->getErrors())); // 오류 로그
+            return false;
         }
 
         // 쿼리 빌더 생성
@@ -44,7 +61,6 @@ class modelDb
         foreach ($data as $key => $value) {
             // 값이 사칙 연산을 포함한 문자열일 때 처리
             if (is_string($value) && preg_match('/^(\+|\-|\*|\/)=/', $value, $matches)) {
-
                 // 기존 필드 값을 연산
                 $builder->set($key, "{$key} {$matches[1]} " . $matches[2], false);
                 unset($data[$key]);
@@ -56,23 +72,27 @@ class modelDb
             $builder->set($data);
         }
 
-        // 조건이 있는 경우와 없는 경우의 처리
+        // 쿼리 실행
+        $result = null;
         if (!empty($where)) {
-            return $builder->where($where)->update();
+            $result = $builder->where($where)->update();
         } else {
-            return $builder->where($model->primaryKey, $id)->update();
+            $result = $builder->where($model->primaryKey, $id)->update();
         }
+
+        // 쿼리 실행 결과 확인 및 오류 로그 출력
+        if (!$result) {
+            // 직접 DB 연결을 가져와 오류 확인
+            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+            log_message('error', '' . json_encode($db->error())); // 오류 로그
+            return false;
+        }
+
+        // 쿼리 성공 시 결과 반환
+        return $result;
     }
 
 
-    /**
-     * 복잡한 쿼리를 실행하여 결과를 반환하는 함수
-     *
-     * @param string $sql 실행할 SQL 쿼리
-     * @param array $params 바인딩할 파라미터 (옵션)
-     * @param BaseConnection|null $db 데이터베이스 연결 인스턴스 (옵션)
-     * @return array 쿼리 결과 배열
-     */
     public function select_MDB(string $sql, array $params = [], BaseConnection $db = null): array
     {
         // 데이터베이스 연결 인스턴스 가져오기 (기본: CodeIgniter의 기본 DB)
@@ -81,6 +101,7 @@ class modelDb
 
         return $query->getResultArray();
     }
+
 
     public function paging_MDB(
         string $sql,

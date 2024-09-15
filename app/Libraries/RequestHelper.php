@@ -14,7 +14,7 @@ class RequestHelper
     public static function onlyAllowedMethods(array $methods)
     {
         $request = service('request');
-        $allowedMethods = array_map('strtolower', $methods); // 메서드 소문자 변환
+        $allowedMethods = array_map('strtoupper', $methods); // 메서드 소문자 변환
 
         if (!in_array($request->getMethod(), $allowedMethods)) {
             // 응답 반환 및 스크립트 종료
@@ -22,10 +22,12 @@ class RequestHelper
             $response->setStatusCode(405);
             $response->setJSON([
                 'status' => 'error',
-                'message' => 'Method Not Allowed'
+                'message' => "Method Not Found Allow"
             ]);
             $response->send(); // 응답을 보내고
             exit(); // 스크립트를 종료합니다.
         }
+
+        return true;
     }
 }

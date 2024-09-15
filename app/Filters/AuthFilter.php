@@ -20,8 +20,8 @@ class AuthFilter implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         // 헤더에서 토큰 가져오기
-        $accessToken = $request->getHeaderLine('Access-Token');
-        $refreshToken = $request->getHeaderLine('Refresh-Token');
+        $accessToken = $request->getHeaderLine('A-Token');
+        $refreshToken = $request->getHeaderLine('R-Token');
 
         if (!$accessToken) {
             return Services::response()->setJSON([
@@ -37,8 +37,8 @@ class AuthFilter implements FilterInterface
         // 엑세스 토큰이 만료되었으나, 리프레시 토큰으로 재발급 성공
         if ($result['status'] === 'Y') {
             // 새로운 엑세스 토큰을 헤더로 추가
-            header('Access-Token: ' . $result['access_token']);
-            header('Refresh-Token: ' . $result['refresh_token']);
+            header('A-Token: ' . $result['access_token']);
+            header('R-Token: ' . $result['refresh_token']);
         } elseif ($result['status'] === 'N') {
             // 실패 응답 반환
             return Services::response()->setJSON($result)->setStatusCode(401);

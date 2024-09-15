@@ -8,6 +8,15 @@ use App\Libraries\modelDb; // 공통 디비 펑션
 
 class UserModel extends Model
 {
+    protected $modelDb;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->modelDb = new modelDb();
+    }
+
+
     protected $table = '_member'; // 테이블 이름
     protected $primaryKey = 'm_idx'; // 기본 키
     protected $useAutoIncrement = true; // 자동 증가 사용
@@ -70,12 +79,6 @@ class UserModel extends Model
     // 삭제 후의 후처리 작업이나 관련된 데이터를 정리하는 작업 등을 수행할 수 있습니다.
     protected $afterDelete = [];
 
-    /**
-     * 비밀번호를 해시하는 콜백 메서드
-     *
-     * @param array $data
-     * @return array
-     */
     protected function hashPassword(array $data)
     {
         if (!empty($data['data']['m_pass'])) {
@@ -84,32 +87,13 @@ class UserModel extends Model
         return $data;
     }
 
-    /**
-     * 데이터 삽입 메서드
-     *
-     * @param array $data
-     * @return mixed
-     */
     public function insert_DBV(array $data)
     {
-        if (!$this->validate($this->validationRules, $data)) {
-            return $this->errors(); // 유효성 검사 실패 시 에러 반환
-        }
-
-        return $this->insert($data);
+        return $this->modelDb->insert_MDB($this, $data);
     }
 
-    /**
-     * 데이터 수정 메서드
-     *
-     * @param int $id
-     * @param array $data
-     * @return mixed
-     */
     public function update_DBV(int $id, array $data, array $where = [])
     {
         return $this->modelDb->update_MDB($this, $id, $data, $where);
     }
-
-
 }

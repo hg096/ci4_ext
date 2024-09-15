@@ -83,7 +83,7 @@ class UtilPack
         // 엑세스 토큰이 만료되지 않은 경우
         if ($accessValidation['status'] === 'success') {
             return [
-                'status' => 'N',
+                'status' => 'Y',
                 'message' => '엑세스 토큰이 아직 유효합니다. 리프레시 토큰을 사용할 필요가 없습니다.'
             ];
         }
@@ -142,4 +142,6 @@ class UtilPack
             'refresh_token' => $newRefreshToken
         ];
     }
+
+
 }
