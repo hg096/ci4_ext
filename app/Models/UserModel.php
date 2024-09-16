@@ -87,13 +87,13 @@ class UserModel extends Model
         return $data;
     }
 
-    public function insert_DBV(array $data)
+    public function insert_DBV(array $data, string $message)
     {
-        return $this->modelDb->insert_MDB($this, $data);
+        return $this->modelDb->insert_MDB($this, $data, $message);
     }
 
-    public function update_DBV(int $id, array $data, array $where = [])
+    public function update_DBV(int $id, array $data, string $message, array $where = [])
     {
-        return $this->modelDb->update_MDB($this, $id, $data, $where);
+        return $this->modelDb->update_MDB($this, $id, $data, $message, $where);
     }
 }

@@ -12,19 +12,37 @@ class modelDb
 {
 
 
-    public function insert_MDB(Model $model, array $data)
+    public function insert_MDB(Model $model, array $data, string $message = "추가 에러")
     {
+        // 데이터베이스 연결 인스턴스 가져오기
+        $db = \Config\Database::connect();
+
+        // 데이터 삽입 시도
         if (!$model->insert($data, true)) {
-            log_message('error', '' . json_encode($model->errors()));
-            return false; // 유효성 검사 실패 시 에러 반환
+            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
+            log_message('error', "insert_MDB - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+
+            // 트랜잭션 롤백
+            $db->transRollback();
+
+            // 401 에러 반환
+            Services::response()
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'N',
+                    'message' => '추가에 실패했습니다.',
+                    'errors' => $model->errors()
+                ])
+                ->send(); // 즉시 응답 반환 및 종료
+
+            exit();
         }
 
         // 성공 시 삽입된 레코드의 ID 반환
         return $model->insertID();
     }
 
-
-    public function update_MDB(Model $model, int $id, array $data, array $where = [])
+    public function update_MDB(Model $model, int $id, array $data, $message = "수정 에러", array $where = [], )
     {
 
         $updateValidationRules = $model->validationRules;
@@ -48,9 +66,26 @@ class modelDb
 
         // 유효성 검사 수행
         if (!$validation->run($data)) {
-            // 유효성 검사 실패 시 에러 반환
-            log_message('error', '' . json_encode($validation->getErrors())); // 오류 로그
-            return false;
+
+            // 직접 DB 연결을 가져와 오류 확인
+            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+
+            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
+            log_message('error', "update_MDB validation - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+
+            // 트랜잭션 롤백
+            $db->transRollback();
+
+            // 401 에러 반환
+            Services::response()
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'N',
+                    'message' => '수정에 실패했습니다.',
+                    'errors' => $model->errors()
+                ])
+                ->send(); // 즉시 응답 반환 및 종료
+            exit();
         }
 
         // 쿼리 빌더 생성
@@ -84,8 +119,23 @@ class modelDb
         if (!$result) {
             // 직접 DB 연결을 가져와 오류 확인
             $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
-            log_message('error', '' . json_encode($db->error())); // 오류 로그
-            return false;
+
+            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
+            log_message('error', "update_MDB SQL - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+
+            // 트랜잭션 롤백
+            $db->transRollback();
+
+            // 401 에러 반환
+            Services::response()
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'N',
+                    'message' => '수정에 실패했습니다.',
+                    'errors' => $model->errors()
+                ])
+                ->send(); // 즉시 응답 반환 및 종료
+            exit();
         }
 
         // 쿼리 성공 시 결과 반환
@@ -146,7 +196,4 @@ class modelDb
             'nextPagingCnt' => $nonEmptySegmentsCount
         ];
     }
-
-
-
 }

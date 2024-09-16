@@ -48,7 +48,7 @@ class User extends ResourceController
         $this->userModel->transStart();
 
         // 데이터 삽입
-        $this->userModel->insert_DBV($data);
+        $this->userModel->insert_DBV($data, " join 추가 ");
 
         // 방금 삽입된 레코드의 기본 키 값 가져오기
         $userIdx = $this->userModel->insertID();
@@ -65,7 +65,7 @@ class User extends ResourceController
             $refreshToken = $this->utilPack->generateJWT($user, 15);
 
             // 리프레시 토큰을 m_token 필드에 업데이트
-            $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken]);
+            $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken], "join 리프레시 토큰 업데이트");
         }
 
         // 트랜잭션 종료 및 결과 처리
@@ -126,7 +126,7 @@ class User extends ResourceController
         $refreshToken = $this->utilPack->generateJWT($user, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
-        $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken]);
+        $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "login 리프레시토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
         $this->userModel->transComplete();
