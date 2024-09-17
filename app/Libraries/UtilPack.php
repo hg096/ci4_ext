@@ -64,7 +64,9 @@ class UtilPack
     public function validateJWT($token)
     {
         try {
-            return JWT::decode($token, new Key($this->secretKey, 'HS256'));
+
+            $JWT_result = JWT::decode($token, new Key($this->secretKey, 'HS256'));
+            return ['status' => 'success', 'data' => $JWT_result];
         } catch (ExpiredException $e) {
             return ['status' => 'expired', 'message' => '토큰이 만료되었습니다.'];
         } catch (SignatureInvalidException $e) {
@@ -110,7 +112,7 @@ class UtilPack
         }
 
         // 리프레시 토큰의 사용자 ID 추출
-        $userId = $refreshValidation->uid;
+        $userId = $refreshValidation["data"]->uid;
 
         // 3. 데이터베이스에서 사용자 조회
         $userModel = new UserModel();
@@ -157,7 +159,7 @@ class UtilPack
         $accessToken = $_COOKIE['A-Token'] ?? null;
 
         $accessValidation = $this->validateJWT($accessToken);
-        if (empty($accessValidation->uid)) {
+        if (empty($accessValidation["data"]->uid)) {
             // 응답 반환 및 스크립트 종료
             $response = service('response');
             $response->setStatusCode(401);

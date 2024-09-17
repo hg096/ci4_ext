@@ -6,7 +6,6 @@ use CodeIgniter\Model;
 use CodeIgniter\Database\BaseConnection;
 use Config\Services;
 
-
 // 데이터 관련 통합 함수
 class modelDb
 {
@@ -41,14 +40,16 @@ class modelDb
         return $model->insertID();
     }
 
-    public function update_MDB(Model $model, int $id, array $data, $message = "수정 에러", array $where = [], )
+    public function update_MDB(Model $model, int $id, array $data, $message = "수정 에러", array $where = [])
     {
 
-        $updateValidationRules = $model->validationRules;
+        $updateValidationRules_org = $model->validationRules;
 
-        foreach ($updateValidationRules as $_key => $_value) {
-            // 비어있는 값도 허용하도록 설정
-            $updateValidationRules[(string)$_key] = str_replace("required", "permit_empty", (string)$_value);
+        $updateValidationRules = [];
+        foreach ($data as $data_key => $data_value) {
+            if (!empty($updateValidationRules_org[$data_key])) {
+                $updateValidationRules[$data_key] = $updateValidationRules_org[$data_key];
+            }
         }
 
         foreach ($model->is_unique_arr as $field) {
@@ -59,32 +60,34 @@ class modelDb
             }
         }
 
-        // 유효성 검사 인스턴스 생성 및 규칙 설정
-        $validation = Services::validation();
-        $validation->setRules($updateValidationRules, $model->validationMessages);
+        if (!empty($updateValidationRules)) {
+            // 유효성 검사 인스턴스 생성 및 규칙 설정
+            $validation = Services::validation();
+            $validation->setRules($updateValidationRules, $model->validationMessages);
 
-        // 유효성 검사 수행
-        if (!$validation->run($data)) {
+            // 유효성 검사 수행
+            if (!$validation->run($data)) {
 
-            // 직접 DB 연결을 가져와 오류 확인
-            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+                // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
+                log_message('error', "update_MDB validation - $message: " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE));
 
-            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "update_MDB validation - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+                // 직접 DB 연결을 가져와 오류 확인
+                $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+                // 트랜잭션 롤백
+                $db->transRollback();
 
-            // 트랜잭션 롤백
-            $db->transRollback();
-
-            // 401 에러 반환
-            Services::response()
-                ->setStatusCode(401)
-                ->setJSON([
-                    'status' => 'N',
-                    'message' => '수정에 실패했습니다.'
-                ])
-                ->send(); // 즉시 응답 반환 및 종료
-            exit();
+                // 401 에러 반환
+                Services::response()
+                    ->setStatusCode(401)
+                    ->setJSON([
+                        'status' => 'N',
+                        'message' => '이미 사용중인 정보입니다.'
+                    ])
+                    ->send(); // 즉시 응답 반환 및 종료
+                exit();
+            }
         }
+
 
         // 쿼리 빌더 생성
         $builder = $model->builder();
@@ -130,6 +133,63 @@ class modelDb
                 ->setJSON([
                     'status' => 'N',
                     'message' => '수정에 실패했습니다.'
+                ])
+                ->send(); // 즉시 응답 반환 및 종료
+            exit();
+        }
+
+        // 쿼리 성공 시 결과 반환
+        return $result;
+    }
+
+    // 개념 삭제에서 사용
+    public function updateDel_MDB(Model $model, int $id, array $data, $message = "삭제 에러", array $where = [])
+    {
+
+        // 쿼리 빌더 생성
+        $builder = $model->builder();
+
+        // 사칙 연산 처리
+        // 'points' => '+=10',  // points 필드에 10을 더함
+        foreach ($data as $key => $value) {
+            // 값이 사칙 연산을 포함한 문자열일 때 처리
+            if (is_string($value) && preg_match('/^(\+|\-|\*|\/)=/', $value, $matches)) {
+                // 기존 필드 값을 연산
+                $builder->set($key, "{$key} {$matches[1]} " . $matches[2], false);
+                unset($data[$key]);
+            }
+        }
+
+        // 남은 일반 필드 값들을 설정
+        if (!empty($data)) {
+            $builder->set($data);
+        }
+
+        // 쿼리 실행
+        $result = null;
+        if (!empty($where)) {
+            $result = $builder->where($where)->update();
+        } else {
+            $result = $builder->where($model->primaryKey, $id)->update();
+        }
+
+        // 쿼리 실행 결과 확인 및 오류 로그 출력
+        if (!$result) {
+            // 직접 DB 연결을 가져와 오류 확인
+            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+
+            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
+            log_message('error', "updateDel_MDB SQL - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+
+            // 트랜잭션 롤백
+            $db->transRollback();
+
+            // 401 에러 반환
+            Services::response()
+                ->setStatusCode(401)
+                ->setJSON([
+                    'status' => 'N',
+                    'message' => '삭제에 실패했습니다.'
                 ])
                 ->send(); // 즉시 응답 반환 및 종료
             exit();

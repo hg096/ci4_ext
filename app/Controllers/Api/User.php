@@ -152,7 +152,7 @@ class User extends ResourceController
         $m_email = $this->request->getPost('m_email');
 
         // 토큰의 사용자 ID 추출
-        $userId = $resultJWT->uid;
+        $userId = $resultJWT["data"]->uid;
 
         // 사용자를 ID로 조회
         $user = $this->userModel
@@ -162,21 +162,49 @@ class User extends ResourceController
             ])
             ->first();
 
-        // 트랜잭션 시작
-        $this->utilPack->handleTransactionStart($this->userModel);
 
-        // 리프레시 토큰을 m_token 필드에 업데이트
-        $this->userModel->update_DBV(
-            $user['m_idx'],
-            [
-                'm_id' => $m_id,
-                'm_email' => $m_email
-            ],
-            "edits 회원 정보 업데이트"
-        );
+        if (!empty($user['m_idx'])) {
 
-        // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->handleTransactionEnd($this->userModel);
+            // 트랜잭션 시작
+            $this->utilPack->handleTransactionStart($this->userModel);
+
+            // 리프레시 토큰을 m_token 필드에 업데이트
+            $this->userModel->update_DBV(
+                $user['m_idx'],
+                [
+                    'm_id' => $m_id,
+                    'm_email' => $m_email
+                ],
+                "edits 회원 정보 업데이트"
+            );
+            // 트랜잭션 종료 및 결과 처리
+            $this->utilPack->handleTransactionEnd($this->userModel);
+
+
+            // 토근에 담긴 회원 아이디를 수정했기 때문에 토큰 재발급
+            $user["m_id"] = $m_id;
+
+
+            // 엑세스 토큰 생성 (유효기간 1시간)
+            $accessToken = $this->utilPack->generateJWT($user, 0, 1);
+            $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
+
+            // 리프레시 토큰 생성 (유효기간 15일)
+            $refreshToken = $this->utilPack->generateJWT($user, 15);
+            $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
+
+
+        } else {
+            // 성공 응답 반환
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status' => 'N',
+                    'message' => "회원 수정에 실패했습니다."
+                ]);
+        }
+
+
 
         // 성공 응답 반환
         return $this->response
