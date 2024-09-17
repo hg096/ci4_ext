@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Filters;
 
 use CodeIgniter\HTTP\RequestInterface;
@@ -19,9 +20,10 @@ class AuthFilter implements FilterInterface
     // 요청이 컨트롤러에 도달하기 전에 실행
     public function before(RequestInterface $request, $arguments = null)
     {
-        // 헤더에서 토큰 가져오기
-        $accessToken = $request->getHeaderLine('A-Token');
-        $refreshToken = $request->getHeaderLine('R-Token');
+        // 토큰 가져오기
+
+        $accessToken = $_COOKIE['A-Token'] ?? null;
+        $refreshToken = $_COOKIE['R-Token'] ?? null;
 
         if (!$accessToken) {
             return Services::response()->setJSON([
@@ -30,18 +32,18 @@ class AuthFilter implements FilterInterface
             ])->setStatusCode(401);
         }
 
-        // 엑세스 토큰 유효성 검증
-        $accessToken = str_replace('Bearer ', '', $accessToken);
         $result = $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
 
         // 엑세스 토큰이 만료되었으나, 리프레시 토큰으로 재발급 성공
         if ($result['status'] === 'Y') {
-            // 새로운 엑세스 토큰을 헤더로 추가
-            header('A-Token: ' . $result['access_token']);
-            header('R-Token: ' . $result['refresh_token']);
-        } elseif ($result['status'] === 'N') {
+
+            $this->utilPack->makeCookie('A-Token', $result['access_token'], 0, 1);
+            $this->utilPack->makeCookie('R-Token', $result['refresh_token'], 15);
+
+        } elseif ($result['status'] === 'OUT') {
             // 실패 응답 반환
-            return Services::response()->setJSON($result)->setStatusCode(401);
+            Services::response()->setJSON($result)->setStatusCode(401);
+            exit();
         }
     }
 

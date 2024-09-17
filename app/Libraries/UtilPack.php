@@ -2,6 +2,9 @@
 
 namespace App\Libraries;
 
+use Config\Services;
+use CodeIgniter\Model;
+
 use CodeIgniter\HTTP\Response;
 
 
@@ -13,7 +16,6 @@ use Firebase\JWT\SignatureInvalidException;
 use CodeIgniter\I18n\Time;
 use Exception;
 use App\Models\UserModel;
-
 
 
 class UtilPack
@@ -59,7 +61,7 @@ class UtilPack
         return JWT::encode($payload, $this->secretKey, 'HS256');
     }
 
-    private function validateJWT($token)
+    public function validateJWT($token)
     {
         try {
             return JWT::decode($token, new Key($this->secretKey, 'HS256'));
@@ -83,7 +85,7 @@ class UtilPack
         // 엑세스 토큰이 만료되지 않은 경우
         if ($accessValidation['status'] === 'success') {
             return [
-                'status' => 'Y',
+                'status' => 'ATY',
                 'message' => '엑세스 토큰이 아직 유효합니다. 리프레시 토큰을 사용할 필요가 없습니다.'
             ];
         }
@@ -91,7 +93,7 @@ class UtilPack
         // 엑세스 토큰이 만료된 경우에만 리프레시 토큰 사용
         if ($accessValidation['status'] !== 'expired') {
             return [
-                'status' => 'N',
+                'status' => 'OUT',
                 'message' => '엑세스 토큰이 유효하지 않습니다. 다시 로그인하세요.'
             ];
         }
@@ -102,7 +104,7 @@ class UtilPack
         // 리프레시 토큰 유효성 검사 실패
         if ($refreshValidation['status'] !== 'success') {
             return [
-                'status' => 'N',
+                'status' => 'OUT',
                 'message' => '리프레시 토큰이 유효하지 않거나 만료되었습니다.'
             ];
         }
@@ -112,11 +114,17 @@ class UtilPack
 
         // 3. 데이터베이스에서 사용자 조회
         $userModel = new UserModel();
-        $user = $userModel->find($userId);
+        // $user = $userModel->find($userId);
+        $user = $userModel
+        ->where([
+            'm_id' => $userId,
+            'm_is_use' => 'Y',
+        ])
+        ->first();
 
         if (!$user) {
             return [
-                'status' => 'N',
+                'status' => 'OUT',
                 'message' => '사용자를 찾을 수 없습니다.'
             ];
         }
@@ -124,7 +132,7 @@ class UtilPack
         // 데이터베이스에 저장된 리프레시 토큰과 요청된 토큰을 비교
         if ((string)$refreshToken !== (string)$user['m_token']) {
             return [
-                'status' => 'N',
+                'status' => 'OUT',
                 'message' => '리프레시 토큰이 일치하지 않습니다.'
             ];
         }
@@ -143,5 +151,79 @@ class UtilPack
         ];
     }
 
+
+    public function checkJWT()
+    {
+        $accessToken = $_COOKIE['A-Token'] ?? null;
+
+        $accessValidation = $this->validateJWT($accessToken);
+        if (empty($accessValidation->uid)) {
+            // 응답 반환 및 스크립트 종료
+            $response = service('response');
+            $response->setStatusCode(401);
+            $response->setJSON([
+                'status' => 'ATokenEnd',
+                'message' => "다시 시도해주세요."
+            ]);
+            $response->send(); // 응답을 보내고
+            exit(); // 스크립트를 종료합니다.
+        }
+
+        return $accessValidation;
+    }
+
+    public function makeCookie($name, $value, $days = 0, $hours = 0) {
+
+        $issuedAt = Time::now()->getTimestamp();
+
+        if (!empty((int)$days)) {
+            $expiryInSeconds = (int)$days * 86400; // 일(day) 단위를 초(second) 단위로 변환
+        } else if (!empty((int)$hours)) {
+            $expiryInSeconds = (int)$hours * 3600; // 시간(hours) 단위를 초(second) 단위로 변환
+        } else {
+            $expiryInSeconds = 7 * 86400;
+        }
+
+        $expiration = (int)$issuedAt + (int)$expiryInSeconds;
+
+        setcookie($name, $value, [
+            'expires' => $expiration, // 만료 시간
+            'path' => '/',
+            'domain' => '', // 필요시 도메인 설정
+            // 'secure' => true, // HTTPS 사용 시에만 전송
+            'httponly' => true, // JavaScript 접근 불가
+            'samesite' => 'Lax' // CSRF 방지
+            // 'samesite' => 'None' // 크로스 도메인 요청 허용, 앱api 사용시
+        ]);
+
+    }
+
+
+    public function handleTransactionStart(Model $model)
+    {
+        // 트랜잭션 시작
+        $model->transStart();
+    }
+
+    public function handleTransactionEnd(Model $model, string $errorMessage = "처리에 실패했습니다.")
+    {
+        // 트랜잭션 종료
+        $model->transComplete();
+
+        // 트랜잭션 상태 확인
+        if ($model->transStatus() === false) {
+            log_message('error', "!트랜잭션 에러! - : " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+            Services::response()
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status' => 'N',
+                    'message' => $errorMessage
+                ])
+                ->send();
+            exit();
+        }
+
+        return true;
+    }
 
 }

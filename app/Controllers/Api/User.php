@@ -45,7 +45,7 @@ class User extends ResourceController
         ];
 
         // 트랜잭션 시작
-        $this->userModel->transStart();
+        $this->utilPack->handleTransactionStart($this->userModel);
 
         // 데이터 삽입
         $this->userModel->insert_DBV($data, " join 추가 ");
@@ -60,22 +60,18 @@ class User extends ResourceController
 
             // 엑세스 토큰 생성 (유효기간 1시간)
             $accessToken = $this->utilPack->generateJWT($user, 0, 1);
+            $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
 
             // 리프레시 토큰 생성 (유효기간 15일)
             $refreshToken = $this->utilPack->generateJWT($user, 15);
+            $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
 
             // 리프레시 토큰을 m_token 필드에 업데이트
             $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken], "join 리프레시 토큰 업데이트");
         }
 
         // 트랜잭션 종료 및 결과 처리
-        $this->userModel->transComplete();
-
-        // 트랜잭션이 실패했는지 확인
-        if ($this->userModel->transStatus() === false) {
-            // 실패 시 롤백 및 에러 메시지 반환
-            return $this->failValidationErrors($this->userModel->errors());
-        }
+        $this->utilPack->handleTransactionEnd($this->userModel);
 
         // 성공 응답 반환
         return $this->response
@@ -86,8 +82,6 @@ class User extends ResourceController
                 'status' => 'Y',
                 'message' => "회원가입이 성공적으로 완료되었습니다."
             ]);
-
-
     }
 
 
@@ -102,11 +96,11 @@ class User extends ResourceController
 
         // 사용자를 ID로 조회
         $user = $this->userModel
-        ->where([
-            'm_id' => $m_id,
-            'm_is_use' => 'Y',
-        ])
-        ->first();
+            ->where([
+                'm_id' => $m_id,
+                'm_is_use' => 'Y',
+            ])
+            ->first();
 
         // 사용자 존재 여부 및 비밀번호 검증
         if (!$user || !password_verify($m_pass, $user['m_pass'])) {
@@ -117,25 +111,22 @@ class User extends ResourceController
         }
 
         // 트랜잭션 시작
-        $this->userModel->transStart();
+        $this->utilPack->handleTransactionStart($this->userModel);
+
 
         // 엑세스 토큰 생성 (유효기간 1시간)
         $accessToken = $this->utilPack->generateJWT($user, 0, 1);
+        $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
         $refreshToken = $this->utilPack->generateJWT($user, 15);
+        $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "login 리프레시토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
-        $this->userModel->transComplete();
-
-        // 트랜잭션이 실패했는지 확인
-        if ($this->userModel->transStatus() === false) {
-            // 실패 시 롤백 및 에러 메시지 반환
-            return $this->failValidationErrors($this->userModel->errors());
-        }
+        $this->utilPack->handleTransactionEnd($this->userModel);
 
         // 성공 응답 반환
         return $this->response
@@ -149,4 +140,50 @@ class User extends ResourceController
     }
 
 
+    public function edits()
+    {
+        // POST 요청만 허용
+        RequestHelper::onlyAllowedMethods(['post']);
+
+        $resultJWT = $this->utilPack->checkJWT();
+
+        // 요청 데이터 가져오기
+        $m_id = $this->request->getPost('m_id');
+        $m_email = $this->request->getPost('m_email');
+
+        // 토큰의 사용자 ID 추출
+        $userId = $resultJWT->uid;
+
+        // 사용자를 ID로 조회
+        $user = $this->userModel
+            ->where([
+                'm_id' => $userId,
+                'm_is_use' => 'Y',
+            ])
+            ->first();
+
+        // 트랜잭션 시작
+        $this->utilPack->handleTransactionStart($this->userModel);
+
+        // 리프레시 토큰을 m_token 필드에 업데이트
+        $this->userModel->update_DBV(
+            $user['m_idx'],
+            [
+                'm_id' => $m_id,
+                'm_email' => $m_email
+            ],
+            "edits 회원 정보 업데이트"
+        );
+
+        // 트랜잭션 종료 및 결과 처리
+        $this->utilPack->handleTransactionEnd($this->userModel);
+
+        // 성공 응답 반환
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status' => 'Y',
+                'message' => "회원수정이 성공적으로 완료되었습니다."
+            ]);
+    }
 }

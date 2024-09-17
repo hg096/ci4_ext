@@ -30,8 +30,7 @@ class modelDb
                 ->setStatusCode(401)
                 ->setJSON([
                     'status' => 'N',
-                    'message' => '추가에 실패했습니다.',
-                    'errors' => $model->errors()
+                    'message' => '추가에 실패했습니다.'
                 ])
                 ->send(); // 즉시 응답 반환 및 종료
 
@@ -81,8 +80,7 @@ class modelDb
                 ->setStatusCode(401)
                 ->setJSON([
                     'status' => 'N',
-                    'message' => '수정에 실패했습니다.',
-                    'errors' => $model->errors()
+                    'message' => '수정에 실패했습니다.'
                 ])
                 ->send(); // 즉시 응답 반환 및 종료
             exit();
@@ -131,8 +129,7 @@ class modelDb
                 ->setStatusCode(401)
                 ->setJSON([
                     'status' => 'N',
-                    'message' => '수정에 실패했습니다.',
-                    'errors' => $model->errors()
+                    'message' => '수정에 실패했습니다.'
                 ])
                 ->send(); // 즉시 응답 반환 및 종료
             exit();
