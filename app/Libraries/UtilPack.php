@@ -153,7 +153,6 @@ class UtilPack
         ];
     }
 
-
     public function checkJWT()
     {
         $accessToken = $_COOKIE['A-Token'] ?? null;
@@ -161,14 +160,7 @@ class UtilPack
         $accessValidation = $this->validateJWT($accessToken);
         if (empty($accessValidation["data"]->uid)) {
             // 응답 반환 및 스크립트 종료
-            $response = service('response');
-            $response->setStatusCode(401);
-            $response->setJSON([
-                'status' => 'ATokenEnd',
-                'message' => "다시 시도해주세요."
-            ]);
-            $response->send(); // 응답을 보내고
-            exit(); // 스크립트를 종료합니다.
+            $this->sendResponse(401, 'ATokenEnd', '다시 시도해주세요.');
         }
 
         return $accessValidation;
@@ -200,7 +192,6 @@ class UtilPack
 
     }
 
-
     public function handleTransactionStart(Model $model)
     {
         // 트랜잭션 시작
@@ -215,17 +206,42 @@ class UtilPack
         // 트랜잭션 상태 확인
         if ($model->transStatus() === false) {
             log_message('error', "!트랜잭션 에러! - : " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
-            Services::response()
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status' => 'N',
-                    'message' => $errorMessage
-                ])
-                ->send();
-            exit();
+
+            $this->sendResponse(400, 'N', (string)$errorMessage);
         }
 
         return true;
+    }
+
+    public function sendResponse(int $statusCode, string $status, string $message, array $data = null, array $headers = null): void
+    {
+        $response = Services::response();
+
+        $responseArray = [
+            'status' => $status,
+            'message' => $message,
+        ];
+
+        // 추가 데이터가 있을 경우, 응답 배열에 추가
+        if ($data !== null) {
+            $responseArray['data'] = $data;
+        }
+
+        // 응답 헤더 설정 (필요한 경우)
+        if ($headers !== null) {
+            foreach ($headers as $name => $value) {
+                $response->setHeader($name, $value);
+            }
+        }
+
+        // 응답 설정
+        $response
+            ->setStatusCode($statusCode)
+            ->setJSON($responseArray)
+            ->send(); // 즉시 응답 반환 및 종료
+
+        exit(); // 스크립트 종료
+
     }
 
 }

@@ -26,10 +26,7 @@ class AuthFilter implements FilterInterface
         $refreshToken = $_COOKIE['R-Token'] ?? null;
 
         if (!$accessToken) {
-            return Services::response()->setJSON([
-                'status' => 'N',
-                'message' => '엑세스 토큰이 제공되지 않았습니다.'
-            ])->setStatusCode(401);
+            $this->utilPack->sendResponse(401, 'N', '엑세스 토큰이 제공되지 않았습니다.');
         }
 
         $result = $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
@@ -42,8 +39,7 @@ class AuthFilter implements FilterInterface
 
         } elseif ($result['status'] === 'OUT') {
             // 실패 응답 반환
-            Services::response()->setJSON($result)->setStatusCode(401);
-            exit();
+            $this->utilPack->sendResponse(401, $result['status'], $result['message']);
         }
     }
 

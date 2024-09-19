@@ -2,20 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Top\TOPModel;
 
-use CodeIgniter\Model;
-use App\Libraries\modelDb; // 공통 디비 펑션
-
-class UserModel extends Model
+class UserModel extends TOPModel
 {
-    protected $modelDb;
+
 
     public function __construct()
     {
         parent::__construct();
-        $this->modelDb = new modelDb();
     }
-
 
     protected $table = '_member'; // 테이블 이름
     protected $primaryKey = 'm_idx'; // 기본 키
@@ -30,8 +26,8 @@ class UserModel extends Model
     // 날짜 설정
     protected $useTimestamps = true;
     protected $createdField = 'm_regidate';
-    protected $updatedField = ''; // 업데이트 필드 미사용
-    protected $deletedField = ''; // 삭제 필드 미사용
+    protected $updatedField = ''; // 업데이트 필드
+    protected $deletedField = ''; // 삭제 필드
 
     // 유효성 검사 규칙
     // 데이터 추가 시 사용될 규칙
@@ -87,13 +83,4 @@ class UserModel extends Model
         return $data;
     }
 
-    public function insert_DBV(array $data, string $message)
-    {
-        return $this->modelDb->insert_MDB($this, $data, $message);
-    }
-
-    public function update_DBV(int $id, array $data, string $message, array $where = [])
-    {
-        return $this->modelDb->update_MDB($this, $id, $data, $message, $where);
-    }
 }

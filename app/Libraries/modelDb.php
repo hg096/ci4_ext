@@ -5,10 +5,18 @@ namespace App\Libraries;
 use CodeIgniter\Model;
 use CodeIgniter\Database\BaseConnection;
 use Config\Services;
+use App\Libraries\UtilPack;
 
 // 데이터 관련 통합 함수
 class modelDb
 {
+
+    private $utilPack;
+
+    public function __construct()
+    {
+        $this->utilPack = new UtilPack();
+    }
 
 
     public function insert_MDB(Model $model, array $data, string $message = "추가 에러")
@@ -18,22 +26,18 @@ class modelDb
 
         // 데이터 삽입 시도
         if (!$model->insert($data, true)) {
+
+            // 마지막 실행된 쿼리 가져오기
+            $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
+
             // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "insert_MDB - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+            log_message('error', "insert_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
 
             // 트랜잭션 롤백
             $db->transRollback();
 
             // 401 에러 반환
-            Services::response()
-                ->setStatusCode(401)
-                ->setJSON([
-                    'status' => 'N',
-                    'message' => '추가에 실패했습니다.'
-                ])
-                ->send(); // 즉시 응답 반환 및 종료
-
-            exit();
+            $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.');
         }
 
         // 성공 시 삽입된 레코드의 ID 반환
@@ -69,7 +73,7 @@ class modelDb
             if (!$validation->run($data)) {
 
                 // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-                log_message('error', "update_MDB validation - $message: " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE));
+                // log_message('error', "update_MDB validation - $message: " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE));
 
                 // 직접 DB 연결을 가져와 오류 확인
                 $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
@@ -77,14 +81,7 @@ class modelDb
                 $db->transRollback();
 
                 // 401 에러 반환
-                Services::response()
-                    ->setStatusCode(401)
-                    ->setJSON([
-                        'status' => 'N',
-                        'message' => '이미 사용중인 정보입니다.'
-                    ])
-                    ->send(); // 즉시 응답 반환 및 종료
-                exit();
+                $this->utilPack->sendResponse(401, 'N', '이미 사용중인 정보입니다.');
             }
         }
 
@@ -121,21 +118,17 @@ class modelDb
             // 직접 DB 연결을 가져와 오류 확인
             $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
 
+            // 마지막 실행된 쿼리 가져오기
+            $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
+
             // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "update_MDB SQL - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+            log_message('error', "update_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
 
             // 트랜잭션 롤백
             $db->transRollback();
 
             // 401 에러 반환
-            Services::response()
-                ->setStatusCode(401)
-                ->setJSON([
-                    'status' => 'N',
-                    'message' => '수정에 실패했습니다.'
-                ])
-                ->send(); // 즉시 응답 반환 및 종료
-            exit();
+            $this->utilPack->sendResponse(401, 'N', '수정에 실패했습니다.');
         }
 
         // 쿼리 성공 시 결과 반환
@@ -178,21 +171,17 @@ class modelDb
             // 직접 DB 연결을 가져와 오류 확인
             $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
 
+            // 마지막 실행된 쿼리 가져오기
+            $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
+
             // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "updateDel_MDB SQL - $message: " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+            log_message('error', "updateDel_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
 
             // 트랜잭션 롤백
             $db->transRollback();
 
             // 401 에러 반환
-            Services::response()
-                ->setStatusCode(401)
-                ->setJSON([
-                    'status' => 'N',
-                    'message' => '삭제에 실패했습니다.'
-                ])
-                ->send(); // 즉시 응답 반환 및 종료
-            exit();
+            $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
         }
 
         // 쿼리 성공 시 결과 반환

@@ -54,34 +54,38 @@ class User extends ResourceController
         $userIdx = $this->userModel->insertID();
 
         // 삽입이 성공했는지 확인
-        if (!empty($userIdx)) {
-            // 사용자 데이터를 가져오기 위해 DB에서 다시 조회
-            $user = $this->userModel->find($userIdx);
-
-            // 엑세스 토큰 생성 (유효기간 1시간)
-            $accessToken = $this->utilPack->generateJWT($user, 0, 1);
-            $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
-
-            // 리프레시 토큰 생성 (유효기간 15일)
-            $refreshToken = $this->utilPack->generateJWT($user, 15);
-            $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
-
-            // 리프레시 토큰을 m_token 필드에 업데이트
-            $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken], "join 리프레시 토큰 업데이트");
+        if (empty($userIdx)) {
+            $this->utilPack->sendResponse(400, 'N', '회원 가입에 실패했습니다.');
         }
+
+        // 사용자 데이터를 가져오기 위해 DB에서 다시 조회
+        $user = $this->userModel->find($userIdx);
+
+        // 엑세스 토큰 생성 (유효기간 1시간)
+        $accessToken = $this->utilPack->generateJWT($user, 0, 1);
+        $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
+
+        // 리프레시 토큰 생성 (유효기간 15일)
+        $refreshToken = $this->utilPack->generateJWT($user, 15);
+        $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
+
+        // 리프레시 토큰을 m_token 필드에 업데이트
+        $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken], "join 리프레시 토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
         $this->utilPack->handleTransactionEnd($this->userModel);
 
         // 성공 응답 반환
-        return $this->response
-            ->setStatusCode(200)
-            ->setHeader('A-Token', $accessToken)
-            ->setHeader('R-Token', $refreshToken)
-            ->setJSON([
-                'status' => 'Y',
-                'message' => "회원가입이 성공적으로 완료되었습니다."
-            ]);
+        $this->utilPack->sendResponse(
+            200,
+            'Y',
+            '회원가입이 성공적으로 완료되었습니다.',
+            null,
+            [
+                "A-Token" => $accessToken,
+                "R-Token" => $refreshToken
+            ]
+        );
     }
 
 
@@ -104,10 +108,7 @@ class User extends ResourceController
 
         // 사용자 존재 여부 및 비밀번호 검증
         if (!$user || !password_verify($m_pass, $user['m_pass'])) {
-            return $this->response->setStatusCode(401)->setJSON([
-                'status' => 'N',
-                'message' => '아이디 또는 비밀번호가 올바르지 않습니다.'
-            ]);
+            $this->utilPack->sendResponse(400, 'N', '아이디 또는 비밀번호가 올바르지 않습니다.');
         }
 
         // 트랜잭션 시작
@@ -129,14 +130,16 @@ class User extends ResourceController
         $this->utilPack->handleTransactionEnd($this->userModel);
 
         // 성공 응답 반환
-        return $this->response
-            ->setStatusCode(200)
-            ->setHeader('A-Token', $accessToken)
-            ->setHeader('R-Token', $refreshToken)
-            ->setJSON([
-                'status' => 'Y',
-                'message' => "로그인이 성공적으로 완료되었습니다."
-            ]);
+        $this->utilPack->sendResponse(
+            200,
+            'Y',
+            '로그인이 성공적으로 완료되었습니다.',
+            null,
+            [
+                "A-Token" => $accessToken,
+                "R-Token" => $refreshToken
+            ]
+        );
     }
 
 
@@ -162,56 +165,38 @@ class User extends ResourceController
             ])
             ->first();
 
-
-        if (!empty($user['m_idx'])) {
-
-            // 트랜잭션 시작
-            $this->utilPack->handleTransactionStart($this->userModel);
-
-            // 리프레시 토큰을 m_token 필드에 업데이트
-            $this->userModel->update_DBV(
-                $user['m_idx'],
-                [
-                    'm_id' => $m_id,
-                    'm_email' => $m_email
-                ],
-                "edits 회원 정보 업데이트"
-            );
-            // 트랜잭션 종료 및 결과 처리
-            $this->utilPack->handleTransactionEnd($this->userModel);
-
-
-            // 토근에 담긴 회원 아이디를 수정했기 때문에 토큰 재발급
-            $user["m_id"] = $m_id;
-
-
-            // 엑세스 토큰 생성 (유효기간 1시간)
-            $accessToken = $this->utilPack->generateJWT($user, 0, 1);
-            $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
-
-            // 리프레시 토큰 생성 (유효기간 15일)
-            $refreshToken = $this->utilPack->generateJWT($user, 15);
-            $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
-
-
-        } else {
-            // 성공 응답 반환
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status' => 'N',
-                    'message' => "회원 수정에 실패했습니다."
-                ]);
+        if (empty($user['m_idx'])) {
+            $this->utilPack->sendResponse(400, 'N', '회원 수정에 실패했습니다.');
         }
 
+        // 트랜잭션 시작
+        $this->utilPack->handleTransactionStart($this->userModel);
 
+        // 리프레시 토큰을 m_token 필드에 업데이트
+        $this->userModel->update_DBV(
+            $user['m_idx'],
+            [
+                'm_id' => $m_id,
+                'm_email' => $m_email
+            ],
+            "edits 회원 정보 업데이트"
+        );
+
+        // 트랜잭션 종료 및 결과 처리
+        $this->utilPack->handleTransactionEnd($this->userModel);
+
+        // 토근에 담긴 회원 아이디를 수정했기 때문에 토큰 재발급
+        $user["m_id"] = $m_id;
+
+        // 엑세스 토큰 생성 (유효기간 1시간)
+        $accessToken = $this->utilPack->generateJWT($user, 0, 1);
+        $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
+
+        // 리프레시 토큰 생성 (유효기간 15일)
+        $refreshToken = $this->utilPack->generateJWT($user, 15);
+        $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
 
         // 성공 응답 반환
-        return $this->response
-            ->setStatusCode(200)
-            ->setJSON([
-                'status' => 'Y',
-                'message' => "회원수정이 성공적으로 완료되었습니다."
-            ]);
+        $this->utilPack->sendResponse(200, 'Y', '회원수정이 성공적으로 완료되었습니다.');
     }
 }
