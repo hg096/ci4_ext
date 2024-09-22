@@ -34,14 +34,14 @@ class TOPModel extends Model
         return $this->modelDb->delete_MDB($this, $id, $message, $where);
     }
 
-    public function select_DBV(string $sql, array $params, object $db)
+    public function select_DBV(string $sql, array $params = [], $message = "")
     {
-        return $this->modelDb->select_MDB($sql, $params, $db);
+        return $this->modelDb->select_MDB($sql, $params, $message);
     }
 
-    public function paging_DBV(string $sql, array $params, int $requestedPage, int $perPage, int $pageMakeCnt, object $db)
+    public function paging_DBV(string $sql, array $params, string $message, int $requestedPage, int $perPage, int $pageMakeCnt)
     {
-        return $this->modelDb->paging_MDB($sql, $params, $requestedPage, $perPage, $pageMakeCnt, $db);
+        return $this->modelDb->paging_MDB($sql, $params, $message, $requestedPage, $perPage, $pageMakeCnt);
     }
 
 

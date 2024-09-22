@@ -13,15 +13,16 @@ class User extends ApiTopController
 {
 
     private $userModel;
+    private $requestHelper;
 
     public function __construct()
     {
         // 부모 클래스의 생성자 호출
         parent::__construct();
 
-        // $this->utilPack = new UtilPack();
         // 모델 인스턴스 생성
         $this->userModel = new UserModel();
+        $this->requestHelper = new RequestHelper();
     }
 
     public function index(): string
@@ -34,7 +35,7 @@ class User extends ApiTopController
     public function join()
     {
         // 요청만 허용
-        RequestHelper::onlyAllowedMethods(['post']);
+        $this->requestHelper->onlyAllowedMethods(['post']);
 
         // 요청 데이터 가져오기
         $data = [
@@ -94,19 +95,15 @@ class User extends ApiTopController
     public function login()
     {
         // 요청만 허용
-        RequestHelper::onlyAllowedMethods(['post']);
+        $this->requestHelper->onlyAllowedMethods(['post']);
 
         // 요청 데이터 가져오기
         $m_id = $this->request->getPost('m_id');
         $m_pass = $this->request->getPost('m_pass');
 
         // 사용자를 ID로 조회
-        $user = $this->userModel
-            ->where([
-                'm_id' => $m_id,
-                'm_is_use' => 'Y',
-            ])
-            ->first();
+        $selectUser = "SELECT * from _member where m_id = ? AND m_is_use = 'Y' limit 1";
+        $user = $this->userModel->select_DBV($selectUser, [$m_id], "User/login 1")[0];
 
         // 사용자 존재 여부 및 비밀번호 검증
         if (!$user || !password_verify($m_pass, $user['m_pass'])) {
@@ -147,7 +144,7 @@ class User extends ApiTopController
     public function edits()
     {
         // 요청만 허용
-        RequestHelper::onlyAllowedMethods(['post', 'put']);
+        $this->requestHelper->onlyAllowedMethods(['post']);
 
         // 요청 데이터 가져오기
         $m_id = $this->request->getPost('m_id');
@@ -157,12 +154,9 @@ class User extends ApiTopController
         $userId = $this->JWTData->uid;
 
         // 사용자를 ID로 조회
-        $user = $this->userModel
-            ->where([
-                'm_id' => $userId,
-                'm_is_use' => 'Y',
-            ])
-            ->first();
+        $selectUser = "SELECT * from _member where m_id = ? AND m_is_use = 'Y' limit 1";
+        $user = $this->userModel->select_DBV($selectUser, [$userId], "User/edits 1")[0];
+
 
         if (empty($user['m_idx'])) {
             $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');
@@ -207,18 +201,14 @@ class User extends ApiTopController
     public function logout()
     {
         // 요청만 허용
-        RequestHelper::onlyAllowedMethods(['post', 'put']);
+        $this->requestHelper->onlyAllowedMethods(['post']);
 
         // 토큰의 사용자 ID 추출
         $userId = $this->JWTData->uid;
 
         // 사용자를 ID로 조회
-        $user = $this->userModel
-            ->where([
-                'm_id' => $userId,
-                'm_is_use' => 'Y',
-            ])
-            ->first();
+        $selectUser = "SELECT * from _member where m_id = ? AND m_is_use = 'Y' limit 1";
+        $user = $this->userModel->select_DBV($selectUser, [$userId], "User/logout 1")[0];
 
         if (empty($user['m_idx'])) {
             $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');
@@ -243,6 +233,8 @@ class User extends ApiTopController
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '로그아웃이 성공적으로 완료되었습니다.');
     }
+
+
 
 
 }

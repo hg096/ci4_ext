@@ -31,7 +31,7 @@ class modelDb
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
             // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "insert_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
+            log_message('critical', "\n\n insert_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
             // 트랜잭션 롤백
             $db->transRollback();
@@ -74,7 +74,7 @@ class modelDb
             if (!$validation->run($data)) {
 
                 // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-                // log_message('error', "update_MDB validation - $message: " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE));
+                // log_message('critical', "\n\n update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE)."\n\n");
 
                 // 직접 DB 연결을 가져와 오류 확인
                 $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
@@ -131,7 +131,7 @@ class modelDb
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
             // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "update_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
+            log_message('critical', "\n\n update_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
             // 트랜잭션 롤백
             if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
@@ -192,8 +192,7 @@ class modelDb
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
             // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('error', "updateDel_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
-
+            log_message('critical', "\n\n updateDel_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
             // 트랜잭션 롤백
             if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
                 $db->transRollback();
@@ -231,7 +230,8 @@ class modelDb
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
             // 오류 로그 남기기
-            log_message('error', "delete_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
+            log_message('critical', "\n\n delete_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+
 
             // 트랜잭션 롤백
             if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
@@ -247,11 +247,32 @@ class modelDb
     }
 
 
-    public function select_MDB(string $sql, array $params = [], BaseConnection $db = null): array
+    public function select_MDB(string $sql, array $params = [], $message = "조회 에러"): array
     {
         // 데이터베이스 연결 인스턴스 가져오기 (기본: CodeIgniter의 기본 DB)
-        $db = $db ?? \Config\Database::connect();
+        $db = \Config\Database::connect();
         $query = $db->query($sql, $params);
+
+        // 쿼리 실행 결과 확인 및 오류 로그 출력
+        if (!$query) {
+            // 직접 DB 연결을 가져와 오류 확인
+            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+
+            // 마지막 실행된 쿼리 가져오기
+            $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
+
+            // 오류 로그 남기기
+            log_message('critical', "\n\n select_MDB SQL - | $message | LOG | " . json_encode($db->error(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+
+            // 트랜잭션 롤백
+            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
+                $db->transRollback();
+            }
+
+            // 401 에러 반환
+            $this->utilPack->sendResponse(401, 'N', '조회에 실패했습니다.');
+        }
+
 
         return $query->getResultArray();
     }
@@ -260,10 +281,10 @@ class modelDb
     public function paging_MDB(
         string $sql,
         array $params = [],
+        string $message = "",
         int $requestedPage = 1,
         int $perPage = 20,
-        int $pageMakeCnt = 5,
-        BaseConnection $db = null
+        int $pageMakeCnt = 5
     ): array {
         // 기본 설정: 페이지와 페이지당 데이터 수
         $limit = $perPage * $pageMakeCnt; // 조회할 데이터의 양은 $perPage의 $pageMakeCnt배
@@ -274,7 +295,6 @@ class modelDb
             $offset = ($requestedPage - 1) * $perPage; // 실제 가져올 데이터의 시작 지점은 $perPage를 기준으로
         }
 
-
         // SQL 쿼리 작성 (예시로 데이터가 있는 테이블명과 칼럼명을 설정)
         $sql = $sql . " LIMIT :limit OFFSET :offset";
 
@@ -283,7 +303,7 @@ class modelDb
         $params['offset'] = $offset;
 
         // 데이터 조회
-        $fullData = $this->select_MDB($sql, $params, $db);
+        $fullData = $this->select_MDB($sql, $params, $message);
 
         // 조회된 데이터를 $pageMakeCnt등분하기
         $segmentedData = array_chunk($fullData, $perPage); // $pageMakeCnt개의 세그먼트로 나누기

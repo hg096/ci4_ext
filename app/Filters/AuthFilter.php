@@ -29,12 +29,7 @@ class AuthFilter implements FilterInterface
             $this->utilPack->sendResponse(401, 'N', '인증방식이 잘못되었습니다.');
         }
 
-        $result = $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
-
-        // 실패 응답 반환
-        if ($result['status'] === 'OUT') {
-            $this->utilPack->sendResponse(401, $result['status'], $result['message']);
-        }
+        $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
     }
 
 

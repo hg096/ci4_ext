@@ -27,6 +27,7 @@ class UtilPack
         $this->secretKey = getenv('JWT_SECRET_KEY'); // 환경 변수에서 비밀 키 가져오기
     }
 
+    // jwt 생성
     public function generateJWT($user, $days = 0, $hours = 0)
     {
         $issuedAt = Time::now()->getTimestamp();
@@ -61,6 +62,7 @@ class UtilPack
         return JWT::encode($payload, $this->secretKey, 'HS256');
     }
 
+    // jwt 검증
     public function validateJWT($token)
     {
         try {
@@ -78,6 +80,8 @@ class UtilPack
         }
     }
 
+    // 엑세스 토큰 만료시 엑세스토큰, 리프레시 토큰 재발급
+    // - 엑세스, 리프레시 쿠키 생성, 리프레시 토큰 디비 저장까지
     public function refreshAccessToken($accessToken, $refreshToken)
     {
 
@@ -86,18 +90,12 @@ class UtilPack
 
         // 엑세스 토큰이 만료되지 않은 경우
         if ($accessValidation['status'] === 'success') {
-            return [
-                'status' => 'ATY',
-                'message' => '엑세스 토큰이 아직 유효합니다. 리프레시 토큰을 사용할 필요가 없습니다.'
-            ];
+            return;
         }
 
         // 엑세스 토큰이 만료된 경우에만 리프레시 토큰 사용
         if ($accessValidation['status'] !== 'expired') {
-            return [
-                'status' => 'OUT',
-                'message' => '엑세스 토큰이 유효하지 않습니다. 다시 로그인하세요.'
-            ];
+            $this->sendResponse(401, 'OUT', '다시 로그인하세요.');
         }
 
         // 2. 리프레시 토큰 검증
@@ -105,10 +103,7 @@ class UtilPack
 
         // 리프레시 토큰 유효성 검사 실패
         if ($refreshValidation['status'] !== 'success') {
-            return [
-                'status' => 'OUT',
-                'message' => '리프레시 토큰이 유효하지 않거나 만료되었습니다.'
-            ];
+            $this->sendResponse(401, 'OUT', '다시 로그인하세요.');
         }
 
         // 리프레시 토큰의 사용자 ID 추출
@@ -125,18 +120,12 @@ class UtilPack
             ->first();
 
         if (!$user) {
-            return [
-                'status' => 'OUT',
-                'message' => '사용자를 찾을 수 없습니다.'
-            ];
+            $this->sendResponse(401, 'OUT', '다시 로그인하세요.');
         }
 
         // 데이터베이스에 저장된 리프레시 토큰과 요청된 토큰을 비교
         if ((string)$refreshToken !== (string)$user['m_token']) {
-            return [
-                'status' => 'OUT',
-                'message' => '리프레시 토큰이 일치하지 않습니다.'
-            ];
+            $this->sendResponse(401, 'OUT', '다시 로그인하세요.');
         }
 
         // 4. 엑세스 토큰 재발급 (유효기간 1시간)
@@ -148,26 +137,29 @@ class UtilPack
         $this->makeCookie('R-Token', $newRefreshToken, 15);
         $userModel->update($user['m_idx'], ['m_token' => $newRefreshToken]);
 
-        return [
-            'status' => 'Y',
-            'access_token' => $newAccessToken,
-            'refresh_token' => $newRefreshToken
-        ];
+        return;
     }
 
+
+    // 쿠키에 담긴 jwt 검증, 디코드 된 jwt 내용 리턴
     public function checkJWT()
     {
         $accessToken = $_COOKIE['A-Token'] ?? null;
 
-        $accessValidation = $this->validateJWT($accessToken);
-        if (empty($accessValidation["data"]->uid)) {
-            // 응답 반환 및 스크립트 종료
-            $this->sendResponse(401, 'ATokenEnd', '다시 시도해주세요.');
+        $accessValidation = [];
+
+        if (!empty($accessToken)) {
+            $accessValidation = $this->validateJWT($accessToken);
+            if (empty($accessValidation["data"]->uid)) {
+                // 응답 반환 및 스크립트 종료
+                $this->sendResponse(401, 'ATokenEnd', '다시 시도해주세요.');
+            }
         }
 
         return $accessValidation;
     }
 
+    // 쿠키 생성
     public function makeCookie($name, $value, $days = 0, $hours = 0)
     {
 
@@ -200,12 +192,14 @@ class UtilPack
         ]);
     }
 
+    // 트렌젝션 시작
     public function handleTransactionStart(Model $model)
     {
         // 트랜잭션 시작
         $model->transStart();
     }
 
+    // 트렌젝션 종료
     public function handleTransactionEnd(Model $model, string $errorMessage = "처리에 실패했습니다.")
     {
         // 트랜잭션 종료
@@ -213,7 +207,7 @@ class UtilPack
 
         // 트랜잭션 상태 확인
         if ($model->transStatus() === false) {
-            log_message('error', "!트랜잭션 에러! - : " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
+            log_message('error', "!트랜잭션 에러! - | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
 
             $this->sendResponse(400, 'N', (string)$errorMessage);
         }
@@ -221,6 +215,7 @@ class UtilPack
         return true;
     }
 
+    // 프로세스 종료시
     public function sendResponse(int $statusCode, string $status, string $message, array $data = null, array $headers = null): void
     {
         $response = Services::response();
@@ -231,12 +226,12 @@ class UtilPack
         ];
 
         // 추가 데이터가 있을 경우, 응답 배열에 추가
-        if ($data !== null) {
+        if (!empty($data)) {
             $responseArray['data'] = $data;
         }
 
         // 응답 헤더 설정 (필요한 경우)
-        if ($headers !== null) {
+        if (!empty($headers)) {
             foreach ($headers as $name => $value) {
                 $response->setHeader($name, $value);
             }
@@ -251,4 +246,6 @@ class UtilPack
         exit(); // 스크립트 종료
 
     }
+
+
 }
