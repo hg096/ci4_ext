@@ -63,9 +63,9 @@ class UserModel extends TOPModel
 
     // 콜백 설정
 
-    // 데이터 삽입 전에 비밀번호를 해시하거나, 입력 데이터를 추가로 처리할 수 있습니다.
+    // 데이터 추가 전에 비밀번호를 해시하거나, 입력 데이터를 추가로 처리할 수 있습니다.
     protected $beforeInsert = ['hashPassword'];
-    // 데이터 삽입 후 로그 기록이나 알림 발송 등의 작업을 처리할 수 있습니다.
+    // 데이터 추가 후 로그 기록이나 알림 발송 등의 작업을 처리할 수 있습니다.
     protected $afterInsert = [];
     // 업데이트 전 데이터를 검증하거나 변경 사항을 기록하는 등의 작업에 사용할 수 있습니다.
     protected $beforeUpdate = ['hashPassword'];

@@ -49,13 +49,13 @@ class User extends ApiTopController
         // 트랜잭션 시작
         $this->utilPack->handleTransactionStart($this->userModel);
 
-        // 데이터 삽입
+        // 데이터 추가
         $this->userModel->insert_DBV($data, " join 추가 ");
 
-        // 방금 삽입된 레코드의 기본 키 값 가져오기
+        // 방금 추가된 레코드의 기본 키 값 가져오기
         $userIdx = $this->userModel->insertID();
 
-        // 삽입이 성공했는지 확인
+        // 추가 성공했는지 확인
         if (empty($userIdx)) {
             $this->utilPack->sendResponse(400, 'N', '회원 가입에 실패했습니다.');
         }
@@ -116,7 +116,6 @@ class User extends ApiTopController
         // 트랜잭션 시작
         $this->utilPack->handleTransactionStart($this->userModel);
 
-
         // 엑세스 토큰 생성 (유효기간 1시간)
         $accessToken = $this->utilPack->generateJWT($user, 0, 1);
         $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
@@ -166,7 +165,7 @@ class User extends ApiTopController
             ->first();
 
         if (empty($user['m_idx'])) {
-            $this->utilPack->sendResponse(400, 'N', '회원 수정에 실패했습니다.');
+            $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');
         }
 
         // 트랜잭션 시작
@@ -203,4 +202,47 @@ class User extends ApiTopController
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '회원수정이 성공적으로 완료되었습니다.');
     }
+
+
+    public function logout()
+    {
+        // 요청만 허용
+        RequestHelper::onlyAllowedMethods(['post', 'put']);
+
+        // 토큰의 사용자 ID 추출
+        $userId = $this->JWTData->uid;
+
+        // 사용자를 ID로 조회
+        $user = $this->userModel
+            ->where([
+                'm_id' => $userId,
+                'm_is_use' => 'Y',
+            ])
+            ->first();
+
+        if (empty($user['m_idx'])) {
+            $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');
+        }
+
+        // 트랜잭션 시작
+        $this->utilPack->handleTransactionStart($this->userModel);
+
+        // 엑세스 토큰 만료
+        $this->utilPack->makeCookie('A-Token', "", -1);
+
+        // 리프레시 토큰 만료
+        $this->utilPack->makeCookie('R-Token', "", -1);
+
+        // 리프레시 토큰을 m_token 필드에 업데이트
+        $this->userModel->update_DBV($user['m_idx'], ['m_token' => ""], "logout 로그아웃  리프레시토큰 업데이트");
+
+        // 트랜잭션 종료 및 결과 처리
+        $this->utilPack->handleTransactionEnd($this->userModel);
+
+
+        // 성공 응답 반환
+        $this->utilPack->sendResponse(200, 'Y', '로그아웃이 성공적으로 완료되었습니다.');
+    }
+
+
 }

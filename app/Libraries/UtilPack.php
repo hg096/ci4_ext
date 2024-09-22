@@ -118,11 +118,11 @@ class UtilPack
         $userModel = new UserModel();
         // $user = $userModel->find($userId);
         $user = $userModel
-        ->where([
-            'm_id' => $userId,
-            'm_is_use' => 'Y',
-        ])
-        ->first();
+            ->where([
+                'm_id' => $userId,
+                'm_is_use' => 'Y',
+            ])
+            ->first();
 
         if (!$user) {
             return [
@@ -141,9 +141,11 @@ class UtilPack
 
         // 4. 엑세스 토큰 재발급 (유효기간 1시간)
         $newAccessToken = $this->generateJWT($user, 0, 1); // 1시간 유효
+        $this->makeCookie('A-Token', $newAccessToken, 0, 1);
 
         // 5. 새로운 리프레시 토큰 발급 및 저장
         $newRefreshToken = $this->generateJWT($user, 15); // 15일 유효
+        $this->makeCookie('R-Token', $newRefreshToken, 15);
         $userModel->update($user['m_idx'], ['m_token' => $newRefreshToken]);
 
         return [
@@ -166,19 +168,26 @@ class UtilPack
         return $accessValidation;
     }
 
-    public function makeCookie($name, $value, $days = 0, $hours = 0) {
+    public function makeCookie($name, $value, $days = 0, $hours = 0)
+    {
 
         $issuedAt = Time::now()->getTimestamp();
 
-        if (!empty((int)$days)) {
-            $expiryInSeconds = (int)$days * 86400; // 일(day) 단위를 초(second) 단위로 변환
-        } else if (!empty((int)$hours)) {
-            $expiryInSeconds = (int)$hours * 3600; // 시간(hours) 단위를 초(second) 단위로 변환
+        // 쿠키 만료 시간 계산
+        if ((int)$days < 0 || (int)$hours < 0) {
+            // days 또는 hours가 0보다 작으면 쿠키를 즉시 만료시키도록 현재 시간보다 과거로 설정
+            $expiration = $issuedAt - 3600; // 현재 시간보다 1시간 전으로 설정하여 즉시 만료
         } else {
-            $expiryInSeconds = 7 * 86400;
-        }
+            if (!empty((int)$days)) {
+                $expiryInSeconds = (int)$days * 86400; // 일(day) 단위를 초(second) 단위로 변환
+            } else if (!empty((int)$hours)) {
+                $expiryInSeconds = (int)$hours * 3600; // 시간(hours) 단위를 초(second) 단위로 변환
+            } else {
+                $expiryInSeconds = 7 * 86400; // 기본 만료 기간: 7일
+            }
 
-        $expiration = (int)$issuedAt + (int)$expiryInSeconds;
+            $expiration = (int)$issuedAt + (int)$expiryInSeconds;
+        }
 
         setcookie($name, $value, [
             'expires' => $expiration, // 만료 시간
@@ -189,7 +198,6 @@ class UtilPack
             'samesite' => 'Lax' // CSRF 방지
             // 'samesite' => 'None' // 크로스 도메인 요청 허용, 앱api 사용시
         ]);
-
     }
 
     public function handleTransactionStart(Model $model)
@@ -243,5 +251,4 @@ class UtilPack
         exit(); // 스크립트 종료
 
     }
-
 }

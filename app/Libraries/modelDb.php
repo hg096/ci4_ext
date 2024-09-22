@@ -24,7 +24,7 @@ class modelDb
         // 데이터베이스 연결 인스턴스 가져오기
         $db = \Config\Database::connect();
 
-        // 데이터 삽입 시도
+        // 데이터 추가 시도
         if (!$model->insert($data, true)) {
 
             // 마지막 실행된 쿼리 가져오기
@@ -40,7 +40,7 @@ class modelDb
             $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.');
         }
 
-        // 성공 시 삽입된 레코드의 ID 반환
+        // 성공 시 추가된 레코드의 ID 반환
         return $model->insertID();
     }
 
