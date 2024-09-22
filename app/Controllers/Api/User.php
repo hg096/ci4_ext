@@ -25,7 +25,7 @@ class User extends ApiTopController
         $this->requestHelper = new RequestHelper();
     }
 
-    public function index(): string
+    public function index()
     {
 
         return "AAA";

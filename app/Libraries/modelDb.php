@@ -27,17 +27,39 @@ class modelDb
         // 데이터 추가 시도
         if (!$model->insert($data, true)) {
 
+
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
-            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('critical', "\n\n insert_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+            // 유효성 검사 오류 가져오기
+            $validationErrors = $model->errors();
 
             // 트랜잭션 롤백
-            $db->transRollback();
+            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
+                $db->transRollback();
+            }
 
-            // 401 에러 반환
-            $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.');
+            // 유효성 검사 오류가 있는 경우
+            if (!empty($validationErrors)) {
+                // 유효성 검사 실패 시 로그 남기기
+                log_message('critical', "\n\n insert_MDB Validation Error - | $message | LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+
+
+                // 401 에러 반환
+                $this->utilPack->sendResponse(401, 'N', "이미 사용중인 정보입니다.", $validationErrors);
+            } else {
+                // 쿼리 에러인 경우
+                // 데이터베이스 에러 정보 가져오기
+                $error = $db->error(); // ['code' => SQL 상태 코드, 'message' => 에러 메시지]
+                $errorMessage = $error['message'] ?? 'Unknown error';
+
+                // 쿼리 오류 로그 남기기
+                log_message('critical', "\n\n insert_MDB SQL Error - | $message | LOG | " . json_encode($error, JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+
+
+                // 500 에러 반환
+                $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.', $error);
+            }
         }
 
         // 성공 시 추가된 레코드의 ID 반환
@@ -47,13 +69,12 @@ class modelDb
 
     public function update_MDB(Model $model, int $id, array $data, $message = "수정 에러", array $where = [])
     {
-
-        $updateValidationRules_org = $model->validationRules;
-
         $updateValidationRules = [];
+
+        // 수정 요청이 온것만 체크
         foreach ($data as $data_key => $data_value) {
-            if (!empty($updateValidationRules_org[$data_key])) {
-                $updateValidationRules[$data_key] = $updateValidationRules_org[$data_key];
+            if (!empty($model->validationRules[$data_key])) {
+                $updateValidationRules[$data_key] = $model->validationRules[$data_key];
             }
         }
 
@@ -65,16 +86,86 @@ class modelDb
             }
         }
 
+        // 쿼리 빌더 생성
+        $builder = $model->builder();
+
+        $validationData = [];
+        $isPlusMinus = false;
+
+        // 사칙 연산 처리
+        // 'points' => '+=10',  // points 필드에 10을 더함
+        foreach ($data as $key => $value) {
+            // 값이 사칙 연산을 포함한 문자열일 때 처리
+            if (is_string($value) && preg_match('/^(\+|\-|\*|\/)=/', $value, $matches)) {
+                // 기존 필드 값을 연산
+                $builder->set($key, "{$key} {$matches[1]} " . $matches[2], false);
+                if (!empty($updateValidationRules[$key])) {
+                    $isPlusMinus = true;
+                }
+                $validationData[$key] = [$matches[1], $matches[2]];
+
+                unset($data[$key]);
+            }
+        }
+
+        if ($isPlusMinus === true) {
+            // 현재 데이터 조회 (사칙 연산 처리를 위한 기존 값 확인)
+            $currentValues = $builder->select(array_keys($validationData))
+                ->where($model->primaryKey, $id)
+                ->get()
+                ->getRowArray();
+
+            if (!$currentValues) {
+                $this->utilPack->sendResponse(401, 'N', '데이터가 존재하지 않습니다.');
+            }
+
+            foreach ($validationData as $key => $value) {
+                // 값이 사칙 연산을 포함한 문자열일 때 처리
+                if (is_array($value) === true) {
+
+                    switch ($value[0]) {
+                        case '+':
+                            $newValue = (float)$currentValues[$key] + (float)$value[1];
+                            break;
+                        case '-':
+                            $newValue = (float)$currentValues[$key] - (float)$value[1];
+                            break;
+                        case '*':
+                            $newValue = (float)$currentValues[$key] * (float)$value[1];
+                            break;
+                        case '/':
+                            $newValue = (float)$currentValues[$key] / (float)$value[1];
+                            break;
+                        default:
+                            $newValue = (float)$currentValues[$key];
+                            break;
+                    }
+
+                    if (is_float($newValue) && (int)$newValue === $newValue) {
+                        $newValue = (int)$newValue;
+                    }
+
+                    // 연산 결과를 validationData 설정
+                    $validationData[$key] = $newValue;
+                }
+            }
+        }
+
+        // 왼쪽의 값이 더 우선순위
+        $validationData = $validationData + $data;
+
         if (!empty($updateValidationRules)) {
             // 유효성 검사 인스턴스 생성 및 규칙 설정
             $validation = Services::validation();
             $validation->setRules($updateValidationRules, $model->validationMessages);
 
             // 유효성 검사 수행
-            if (!$validation->run($data)) {
+            if (!$validation->run($validationData)) {
 
                 // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
                 // log_message('critical', "\n\n update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE)."\n\n");
+
+                $validationErrors = $validation->getErrors();
 
                 // 직접 DB 연결을 가져와 오류 확인
                 $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
@@ -84,24 +175,10 @@ class modelDb
                 }
 
                 // 401 에러 반환
-                $this->utilPack->sendResponse(401, 'N', '이미 사용중인 정보입니다.');
+                $this->utilPack->sendResponse(401, 'N', "이미 사용중인 정보입니다.", $validationErrors);
             }
         }
 
-
-        // 쿼리 빌더 생성
-        $builder = $model->builder();
-
-        // 사칙 연산 처리
-        // 'points' => '+=10',  // points 필드에 10을 더함
-        foreach ($data as $key => $value) {
-            // 값이 사칙 연산을 포함한 문자열일 때 처리
-            if (is_string($value) && preg_match('/^(\+|\-|\*|\/)=/', $value, $matches)) {
-                // 기존 필드 값을 연산
-                $builder->set($key, "{$key} {$matches[1]} " . $matches[2], false);
-                unset($data[$key]);
-            }
-        }
 
         // 수동으로 updatedField를 현재 시간으로 설정
         if (!empty($model->updatedField)) {
