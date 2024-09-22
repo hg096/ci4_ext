@@ -3,21 +3,23 @@
 // *** route 시에 폴더까지 잡아주기
 namespace App\Controllers\Api;
 
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\Top\ApiTopController;
+
 use App\Models\UserModel;
 use App\Libraries\RequestHelper;
-use App\Libraries\UtilPack;
 
 
-class User extends ResourceController
+class User extends ApiTopController
 {
 
-    private $utilPack;
     private $userModel;
 
     public function __construct()
     {
-        $this->utilPack = new UtilPack();
+        // 부모 클래스의 생성자 호출
+        parent::__construct();
+
+        // $this->utilPack = new UtilPack();
         // 모델 인스턴스 생성
         $this->userModel = new UserModel();
     }
@@ -31,7 +33,7 @@ class User extends ResourceController
 
     public function join()
     {
-        // POST 요청만 허용
+        // 요청만 허용
         RequestHelper::onlyAllowedMethods(['post']);
 
         // 요청 데이터 가져오기
@@ -91,7 +93,7 @@ class User extends ResourceController
 
     public function login()
     {
-        // POST 요청만 허용
+        // 요청만 허용
         RequestHelper::onlyAllowedMethods(['post']);
 
         // 요청 데이터 가져오기
@@ -145,17 +147,15 @@ class User extends ResourceController
 
     public function edits()
     {
-        // POST 요청만 허용
-        RequestHelper::onlyAllowedMethods(['post']);
-
-        $resultJWT = $this->utilPack->checkJWT();
+        // 요청만 허용
+        RequestHelper::onlyAllowedMethods(['post', 'put']);
 
         // 요청 데이터 가져오기
         $m_id = $this->request->getPost('m_id');
         $m_email = $this->request->getPost('m_email');
 
         // 토큰의 사용자 ID 추출
-        $userId = $resultJWT["data"]->uid;
+        $userId = $this->JWTData->uid;
 
         // 사용자를 ID로 조회
         $user = $this->userModel
@@ -182,9 +182,6 @@ class User extends ResourceController
             "edits 회원 정보 업데이트"
         );
 
-        // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->handleTransactionEnd($this->userModel);
-
         // 토근에 담긴 회원 아이디를 수정했기 때문에 토큰 재발급
         $user["m_id"] = $m_id;
 
@@ -195,6 +192,13 @@ class User extends ResourceController
         // 리프레시 토큰 생성 (유효기간 15일)
         $refreshToken = $this->utilPack->generateJWT($user, 15);
         $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
+
+        // 리프레시 토큰을 m_token 필드에 업데이트
+        $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "edit 리프레시토큰 업데이트");
+
+        // 트랜잭션 종료 및 결과 처리
+        $this->utilPack->handleTransactionEnd($this->userModel);
+
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '회원수정이 성공적으로 완료되었습니다.');

@@ -26,8 +26,8 @@ class UserModel extends TOPModel
     // 날짜 설정
     protected $useTimestamps = true;
     protected $createdField = 'm_regidate';
-    protected $updatedField = ''; // 업데이트 필드
-    protected $deletedField = ''; // 삭제 필드
+    protected $updatedField = 'm_editdate'; // 업데이트 필드
+    protected $deletedField = 'm_deldate'; // 삭제 필드
 
     // 유효성 검사 규칙
     // 데이터 추가 시 사용될 규칙
@@ -36,6 +36,7 @@ class UserModel extends TOPModel
         'm_email' => 'required|valid_email|is_unique[_member.m_email]',
         'm_hp' => 'required|max_length[20]|is_unique[_member.m_hp]',
         'm_pass' => 'required|min_length[8]',
+        'm_is_use' => 'max_length[5]',
         'm_level' => 'max_length[5]',
     ];
 
@@ -82,5 +83,4 @@ class UserModel extends TOPModel
         }
         return $data;
     }
-
 }

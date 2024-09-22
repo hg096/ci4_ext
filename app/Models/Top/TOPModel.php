@@ -29,6 +29,11 @@ class TOPModel extends Model
         return $this->modelDb->updateDel_MDB($this, $id, $data, $message, $where);
     }
 
+    public function delete_DBV(int $id, array $data, string $message, array $where = [])
+    {
+        return $this->modelDb->delete_MDB($this, $id, $message, $where);
+    }
+
     public function select_DBV(string $sql, array $params, object $db)
     {
         return $this->modelDb->select_MDB($sql, $params, $db);

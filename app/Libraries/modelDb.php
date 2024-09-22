@@ -44,6 +44,7 @@ class modelDb
         return $model->insertID();
     }
 
+
     public function update_MDB(Model $model, int $id, array $data, $message = "수정 에러", array $where = [])
     {
 
@@ -78,7 +79,9 @@ class modelDb
                 // 직접 DB 연결을 가져와 오류 확인
                 $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
                 // 트랜잭션 롤백
-                $db->transRollback();
+                if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
+                    $db->transRollback();
+                }
 
                 // 401 에러 반환
                 $this->utilPack->sendResponse(401, 'N', '이미 사용중인 정보입니다.');
@@ -99,6 +102,12 @@ class modelDb
                 unset($data[$key]);
             }
         }
+
+        // 수동으로 updatedField를 현재 시간으로 설정
+        if (!empty($model->updatedField)) {
+            $data[$model->updatedField] = date('Y-m-d H:i:s');
+        }
+
 
         // 남은 일반 필드 값들을 설정
         if (!empty($data)) {
@@ -125,7 +134,9 @@ class modelDb
             log_message('error', "update_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
 
             // 트랜잭션 롤백
-            $db->transRollback();
+            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
+                $db->transRollback();
+            }
 
             // 401 에러 반환
             $this->utilPack->sendResponse(401, 'N', '수정에 실패했습니다.');
@@ -134,6 +145,7 @@ class modelDb
         // 쿼리 성공 시 결과 반환
         return $result;
     }
+
 
     // 개념 삭제에서 사용
     public function updateDel_MDB(Model $model, int $id, array $data, $message = "삭제 에러", array $where = [])
@@ -151,6 +163,11 @@ class modelDb
                 $builder->set($key, "{$key} {$matches[1]} " . $matches[2], false);
                 unset($data[$key]);
             }
+        }
+
+        // 수동으로 deletedField를 현재 시간으로 설정
+        if (!empty($model->deletedField)) {
+            $data[$model->deletedField] = date('Y-m-d H:i:s');
         }
 
         // 남은 일반 필드 값들을 설정
@@ -178,13 +195,54 @@ class modelDb
             log_message('error', "updateDel_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
 
             // 트랜잭션 롤백
-            $db->transRollback();
+            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
+                $db->transRollback();
+            }
 
             // 401 에러 반환
             $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
         }
 
         // 쿼리 성공 시 결과 반환
+        return $result;
+    }
+
+
+    public function delete_MDB(Model $model, int $id, $message = "삭제 에러", array $where = [])
+    {
+        // 쿼리 빌더 생성
+        $builder = $model->builder();
+
+
+        // 삭제 실행
+        $result = null;
+        if (!empty($where)) {
+            $result = $builder->where($where)->delete();
+        } else {
+            $result = $builder->where($model->primaryKey, $id)->delete();
+        }
+
+        // 쿼리 실행 결과 확인 및 오류 로그 출력
+        if (!$result) {
+            // 직접 DB 연결을 가져와 오류 확인
+            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
+
+            // 마지막 실행된 쿼리 가져오기
+            $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
+
+            // 오류 로그 남기기
+            log_message('error', "delete_MDB SQL - $message: " . json_encode($model->errors() . " SQL : $lastQuery ", JSON_UNESCAPED_UNICODE));
+
+            // 트랜잭션 롤백
+            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
+                $db->transRollback();
+            }
+
+            // 401 에러 반환
+            $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
+        }
+
+        // 성공 시 결과 반환
         return $result;
     }
 
