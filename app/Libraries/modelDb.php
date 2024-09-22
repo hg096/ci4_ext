@@ -58,7 +58,7 @@ class modelDb
 
 
                 // 500 에러 반환
-                $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.', $error);
+                $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.');
             }
         }
 
