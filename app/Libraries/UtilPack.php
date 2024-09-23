@@ -55,8 +55,8 @@ class UtilPack
             'aud' => $domain,  // 토큰 대상자
             'iat' => $issuedAt,          // 발급 시간
             'exp' => $expiration,        // 만료 시간
-            'uid' => $user['m_id'],        // 사용자 ID
-            'ulv' => $user['m_level'],        // 사용자 레벨
+            'uid' => $user['uid'],        // 사용자 ID
+            'ulv' => $user['ulv'],        // 사용자 레벨
         ];
 
         return JWT::encode($payload, $this->secretKey, 'HS256');
@@ -247,5 +247,29 @@ class UtilPack
 
     }
 
+    public function checkAuthLevel(string $authData, array $conditions)
+    {
+        // $conditions = [
+        //     ['group' => 'u', 'level' => 2], // u_2 이상 허용
+        //     ['group' => 'a', 'level' => 3], // a_3 이상 허용
+        // ];
 
+        // authData를 그룹과 레벨로 분리
+        $authData_arr = explode("_", $authData);
+        $authGroup = $authData_arr[0];
+        $authLevel = (int)$authData_arr[1];
+
+        // 조건 중 하나라도 만족하면 통과
+        foreach ($conditions as $condition) {
+            $group = $condition['group'];
+            $level = $condition['level'] ?? 0; // 레벨이 지정되지 않으면 0으로 설정
+
+            if ($authGroup === $group && $authLevel >= $level) {
+                return; // 조건 만족 시 함수 종료
+            }
+        }
+
+        // 조건을 모두 만족하지 못한 경우
+        $this->sendResponse(400, 'N', "접근 권한이 없습니다.");
+    }
 }

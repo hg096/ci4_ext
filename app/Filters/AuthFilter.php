@@ -21,7 +21,6 @@ class AuthFilter implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         // 토큰 가져오기
-
         $accessToken = $_COOKIE['A-Token'] ?? null;
         $refreshToken = $_COOKIE['R-Token'] ?? null;
 

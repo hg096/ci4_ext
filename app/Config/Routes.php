@@ -30,6 +30,13 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], function($routes) 
 
 
 
+    $routes->get('adm/user/(:any)', 'UserAdm::$1');
+    $routes->get('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
+    $routes->post('adm/user/(:any)', 'UserAdm::$1');
+    $routes->put('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
+    $routes->delete('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
+
+
 
 });
 

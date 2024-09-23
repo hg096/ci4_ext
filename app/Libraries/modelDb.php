@@ -88,7 +88,6 @@ class modelDb
 
         // 쿼리 빌더 생성
         $builder = $model->builder();
-
         $validationData = [];
         $isPlusMinus = false;
 
@@ -179,12 +178,10 @@ class modelDb
             }
         }
 
-
         // 수동으로 updatedField를 현재 시간으로 설정
         if (!empty($model->updatedField)) {
             $data[$model->updatedField] = date('Y-m-d H:i:s');
         }
-
 
         // 남은 일반 필드 값들을 설정
         if (!empty($data)) {

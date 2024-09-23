@@ -79,6 +79,8 @@ class Filters extends BaseFilters
             'auth' => ['except' => ['/'
             , 'api/user/login'
             , 'api/user/join'
+            , 'api/adm/user/login'
+            , 'api/adm/user/join'
             ]], // 로그인과 회원가입은 제외
         ],
         'after' => [
