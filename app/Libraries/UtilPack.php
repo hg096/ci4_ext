@@ -21,10 +21,17 @@ use App\Models\UserModel;
 class UtilPack
 {
     private $secretKey;
+    private $encryptionKey;
+    private $ivKey;
 
     public function __construct()
     {
-        $this->secretKey = getenv('JWT_SECRET_KEY'); // 환경 변수에서 비밀 키 가져오기
+        // 환경 변수에서 비밀 키 가져오기
+        $this->secretKey = getenv('JWT_SECRET_KEY');
+        // AES-256 암호화 키 (32 바이트)
+        $this->encryptionKey = getenv('JWT_ENCRYPTION_KEY');
+        // 초기화 벡터 (16 바이트, 안전한 난수 사용 권장)
+        $this->ivKey = getenv('JWT_IV_KEY');
     }
 
     // jwt 생성
@@ -59,7 +66,13 @@ class UtilPack
             'ulv' => $user['ulv'],        // 사용자 레벨
         ];
 
-        return JWT::encode($payload, $this->secretKey, 'HS256');
+        // JSON으로 페이로드 변환
+        $payloadJson = json_encode($payload);
+
+        // AES-256-CBC로 페이로드 암호화
+        $encryptedPayload = openssl_encrypt($payloadJson, 'AES-256-CBC', $this->encryptionKey, 0, $this->ivKey);
+
+        return JWT::encode(['data' => $encryptedPayload], $this->secretKey, 'HS256');
     }
 
     // jwt 검증
@@ -68,7 +81,22 @@ class UtilPack
         try {
 
             $JWT_result = JWT::decode($token, new Key($this->secretKey, 'HS256'));
-            return ['status' => 'success', 'data' => $JWT_result];
+
+            // AES-256-CBC로 복호화
+            $encryptedPayload = $JWT_result->data ?? null;
+
+            if (!$encryptedPayload) {
+                return ['status' => 'invalid', 'message' => '토큰이 유효하지 않습니다.'];
+            }
+
+            // 암호화된 페이로드 복호화
+            $payloadJson = openssl_decrypt($encryptedPayload, 'AES-256-CBC', $this->encryptionKey, 0, $this->ivKey);
+
+            if ($payloadJson === false) {
+                return ['status' => 'invalid', 'message' => '토큰이 유효하지 않습니다.'];
+            }
+
+            return ['status' => 'success', 'data' => json_decode($payloadJson, true)];
         } catch (ExpiredException $e) {
             return ['status' => 'expired', 'message' => '토큰이 만료되었습니다.'];
         } catch (SignatureInvalidException $e) {
