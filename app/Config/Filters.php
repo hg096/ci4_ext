@@ -30,8 +30,8 @@ class Filters extends BaseFilters
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,
         'secureheaders' => SecureHeaders::class,
-        'cors'          => Cors::class,
-        // 'cors'          => \App\Filters\CorsFilter::class, // 앱api 사용시
+        // 'cors'          => Cors::class,
+        'cors'          => \App\Filters\CorsFilter::class, // 앱api 사용시
         'forcehttps'    => ForceHTTPS::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
@@ -73,6 +73,7 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
+            'cors',
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
@@ -81,6 +82,7 @@ class Filters extends BaseFilters
             , 'api/user/join'
             , 'api/adm/user/login'
             , 'api/adm/user/join'
+            , 'api/adm/menu/myMenu'
             ]], // 로그인과 회원가입은 제외
         ],
         'after' => [

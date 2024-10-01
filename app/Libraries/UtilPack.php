@@ -213,11 +213,12 @@ class UtilPack
             'expires' => $expiration, // 만료 시간
             'path' => '/',
             'domain' => '', // 필요시 도메인 설정
-            // 'secure' => true, // HTTPS 사용 시에만 전송
+            'secure' => true, // HTTPS 사용 시에만 전송
             'httponly' => true, // JavaScript 접근 불가
-            'samesite' => 'Lax' // CSRF 방지
-            // 'samesite' => 'None' // 크로스 도메인 요청 허용, 앱api 사용시
+            // 'samesite' => 'Lax', // CSRF 방지
+            'samesite' => 'None', // 크로스 도메인 요청 허용, 앱api 사용시
         ]);
+
     }
 
     // 트렌젝션 시작

@@ -37,6 +37,13 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], function($routes) 
     $routes->delete('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
 
 
+    $routes->get('adm/menu/(:any)', 'Menu::$1');
+    $routes->get('adm/menu/(:any)/(:any)', 'Menu::$1/$2');
+    $routes->post('adm/menu/(:any)', 'Menu::$1');
+    $routes->put('adm/menu/(:any)/(:any)', 'Menu::$1/$2');
+    $routes->delete('adm/menu/(:any)/(:any)', 'Menu::$1/$2');
+
+
 
 });
 
