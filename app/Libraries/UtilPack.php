@@ -158,11 +158,11 @@ class UtilPack
 
         // 4. 엑세스 토큰 재발급 (유효기간 1시간)
         $newAccessToken = $this->generateJWT($user, 0, 1); // 1시간 유효
-        $this->makeCookie('A-Token', $newAccessToken, 0, 1);
+        $this->makeCookie(getenv('ACCESS_TOKEN_NAME'), $newAccessToken, 0, 1);
 
         // 5. 새로운 리프레시 토큰 발급 및 저장
         $newRefreshToken = $this->generateJWT($user, 15); // 15일 유효
-        $this->makeCookie('R-Token', $newRefreshToken, 15);
+        $this->makeCookie(getenv('REFRESH_TOKEN_NAME'), $newRefreshToken, 15);
         $userModel->update($user['m_idx'], ['m_token' => $newRefreshToken]);
 
         return;
@@ -172,7 +172,7 @@ class UtilPack
     // 쿠키에 담긴 jwt 검증, 디코드 된 jwt 내용 리턴
     public function checkJWT()
     {
-        $accessToken = $_COOKIE['A-Token'] ?? null;
+        $accessToken = $_COOKIE[getenv('ACCESS_TOKEN_NAME')] ?? null;
 
         $accessValidation = [];
 
@@ -188,7 +188,7 @@ class UtilPack
     }
 
     // 쿠키 생성
-    public function makeCookie($name, $value, $days = 0, $hours = 0)
+    public function makeCookie($name, $value, $days = 0, $hours = 0, $isHttp = true)
     {
 
         $issuedAt = Time::now()->getTimestamp();
@@ -213,8 +213,10 @@ class UtilPack
             'expires' => $expiration, // 만료 시간
             'path' => '/',
             'domain' => '', // 필요시 도메인 설정
+            // 'domain' => '.localhost', // 필요시 도메인 설정
+            // 'domain' => '.ci4.localhost', // 필요시 도메인 설정
             'secure' => true, // HTTPS 사용 시에만 전송
-            'httponly' => true, // JavaScript 접근 불가
+            'httponly' => $isHttp, // JavaScript 접근 불가
             // 'samesite' => 'Lax', // CSRF 방지
             'samesite' => 'None', // 크로스 도메인 요청 허용, 앱api 사용시
         ]);

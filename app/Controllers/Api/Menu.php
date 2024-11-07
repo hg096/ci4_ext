@@ -41,6 +41,11 @@ class Menu extends ApiTopController
         // 토큰의 사용자 ID 추출
         // $userId = $this->JWTData->uid;
 
+        $cookieValue = $this->request->getCookie();
+
+        $this->utilPack->makeCookie('_USER_LOGINS-S', "", -1);
+        $this->utilPack->makeCookie('_USER_LOGINS-A', "", -1);
+
         // 메뉴조회
         $selectMenu = "SELECT am1.*
         from _admin_menu am1
@@ -49,10 +54,14 @@ class Menu extends ApiTopController
         ";
         $menuData = $this->menuModel->select_DBV($selectMenu, [], "Menu/myMenu 1");
 
+        $this->utilPack->makeCookie('_USER_LOGINS-S', "AA", 0, 3, false);
+        $this->utilPack->makeCookie('_USER_LOGINS-A', "AA", 0, 3);
 
-
-        $this->utilPack->makeCookie('TTT', "TT", 0, 3);
-
+        if (!empty($cookieValue)) {
+            foreach ($cookieValue as $_key => $_value) {
+                $menuData[] = [$_key => $_value];
+            }
+        }
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '조회되었습니다.', $menuData);

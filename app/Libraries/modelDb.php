@@ -21,12 +21,12 @@ class modelDb
 
     public function insert_MDB(Model $model, array $data, string $message = "추가 에러")
     {
-        // 데이터베이스 연결 인스턴스 가져오기
-        $db = \Config\Database::connect();
 
         // 데이터 추가 시도
         if (!$model->insert($data, true)) {
 
+            // 데이터베이스 연결 인스턴스 가져오기
+            $db = \Config\Database::connect();
 
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
@@ -44,7 +44,6 @@ class modelDb
                 // 유효성 검사 실패 시 로그 남기기
                 log_message('critical', "\n\n insert_MDB Validation Error - | $message | LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
-
                 // 401 에러 반환
                 $this->utilPack->sendResponse(401, 'N', "이미 사용중인 정보입니다.", $validationErrors);
             } else {
@@ -56,7 +55,6 @@ class modelDb
                 // 쿼리 오류 로그 남기기
                 log_message('critical', "\n\n insert_MDB SQL Error - | $message | LOG | " . json_encode($error, JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
-
                 // 500 에러 반환
                 $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.');
             }
@@ -67,8 +65,12 @@ class modelDb
     }
 
 
-    public function update_MDB(Model $model, int $id, array $data, $message = "수정 에러", array $where = [])
+    // (!ex!) $where = ['column_name' => $userInput, ];
+    // (!ex!) $where = ['( sam_idx = ? OR sam_type = ? ) and ( sam2_idx = ? OR sam2_type = ? )' => [1, 'ba', 13, 'qa'], ]
+    public function update_MDB(Model $model, int $PKId, array $data, $message = "수정 에러", array $where = [])
     {
+
+
         $updateValidationRules = [];
 
         // 수정 요청이 온것만 체크
@@ -82,7 +84,7 @@ class modelDb
             if (isset($updateValidationRules[$field])) {
                 $updateValStr = rtrim($updateValidationRules[$field], ']'); // 마지막에 있는 ']' 제거
                 // 동적으로 is_unique 규칙을 추가하여 현재 레코드 제외
-                $updateValidationRules[$field] = $updateValStr . ",{$model->primaryKey},{$id}]";
+                $updateValidationRules[$field] = $updateValStr . ",{$model->primaryKey},{$PKId}]";
             }
         }
 
@@ -110,7 +112,7 @@ class modelDb
         if ($isPlusMinus === true) {
             // 현재 데이터 조회 (사칙 연산 처리를 위한 기존 값 확인)
             $currentValues = $builder->select(array_keys($validationData))
-                ->where($model->primaryKey, $id)
+                ->where($model->primaryKey, $PKId)
                 ->get()
                 ->getRowArray();
 
@@ -191,9 +193,19 @@ class modelDb
         // 쿼리 실행
         $result = null;
         if (!empty($where)) {
-            $result = $builder->where($where)->update();
+
+            $firstValue = array_values($where)[0];
+
+            if (is_array($firstValue)) {
+                foreach ($where as $condition => $bindings) {
+                    $builder->where($condition, $bindings);
+                }
+                $result = $builder->update();
+            } else {
+                $result = $builder->where($where)->update();
+            }
         } else {
-            $result = $builder->where($model->primaryKey, $id)->update();
+            $result = $builder->where($model->primaryKey, $PKId)->update();
         }
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
@@ -222,7 +234,7 @@ class modelDb
 
 
     // 개념 삭제에서 사용
-    public function updateDel_MDB(Model $model, int $id, array $data, $message = "삭제 에러", array $where = [])
+    public function updateDel_MDB(Model $model, int $PKId, array $data, $message = "삭제 에러", array $where = [])
     {
 
         // 쿼리 빌더 생성
@@ -252,9 +264,19 @@ class modelDb
         // 쿼리 실행
         $result = null;
         if (!empty($where)) {
-            $result = $builder->where($where)->update();
+
+            $firstValue = array_values($where)[0];
+
+            if (is_array($firstValue)) {
+                foreach ($where as $condition => $bindings) {
+                    $builder->where($condition, $bindings);
+                }
+                $result = $builder->update();
+            } else {
+                $result = $builder->where($where)->update();
+            }
         } else {
-            $result = $builder->where($model->primaryKey, $id)->update();
+            $result = $builder->where($model->primaryKey, $PKId)->update();
         }
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
@@ -281,7 +303,7 @@ class modelDb
     }
 
 
-    public function delete_MDB(Model $model, int $id, $message = "삭제 에러", array $where = [])
+    public function delete_MDB(Model $model, int $PKId, $message = "삭제 에러", array $where = [])
     {
         // 쿼리 빌더 생성
         $builder = $model->builder();
@@ -290,9 +312,19 @@ class modelDb
         // 삭제 실행
         $result = null;
         if (!empty($where)) {
-            $result = $builder->where($where)->delete();
+
+            $firstValue = array_values($where)[0];
+
+            if (is_array($firstValue)) {
+                foreach ($where as $condition => $bindings) {
+                    $builder->where($condition, $bindings);
+                }
+                $result = $builder->delete();
+            } else {
+                $result = $builder->where($where)->delete();
+            }
         } else {
-            $result = $builder->where($model->primaryKey, $id)->delete();
+            $result = $builder->where($model->primaryKey, $PKId)->delete();
         }
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
@@ -361,20 +393,20 @@ class modelDb
         int $pageMakeCnt = 5
     ): array {
         // 기본 설정: 페이지와 페이지당 데이터 수
-        $limit = $perPage * $pageMakeCnt; // 조회할 데이터의 양은 $perPage의 $pageMakeCnt배
+        $limit = (int)$perPage * (int)$pageMakeCnt; // 조회할 데이터의 양은 $perPage의 $pageMakeCnt배
 
-        if ($requestedPage === 1) {
+        if ((int)$requestedPage === 1) {
             $offset = 0; // 실제 가져올 데이터의 시작 지점은 $perPage를 기준으로
         } else {
-            $offset = ($requestedPage - 1) * $perPage; // 실제 가져올 데이터의 시작 지점은 $perPage를 기준으로
+            $offset = ((int)$requestedPage - 1) * (int)$perPage; // 실제 가져올 데이터의 시작 지점은 $perPage를 기준으로
         }
 
         // SQL 쿼리 작성 (예시로 데이터가 있는 테이블명과 칼럼명을 설정)
         $sql = $sql . " LIMIT :limit OFFSET :offset";
 
         // 쿼리 파라미터 설정
-        $params['limit'] = $limit;
-        $params['offset'] = $offset;
+        $params['limit'] = (int)$limit;
+        $params['offset'] = (int)$offset;
 
         // 데이터 조회
         $fullData = $this->select_MDB($sql, $params, $message);

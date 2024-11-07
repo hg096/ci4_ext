@@ -21,8 +21,8 @@ class AuthFilter implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         // 토큰 가져오기
-        $accessToken = $_COOKIE['A-Token'] ?? null;
-        $refreshToken = $_COOKIE['R-Token'] ?? null;
+        $accessToken = $_COOKIE[getenv('ACCESS_TOKEN_NAME')] ?? null;
+        $refreshToken = $_COOKIE[getenv('REFRESH_TOKEN_NAME')] ?? null;
 
         if (empty($accessToken)) {
             $this->utilPack->sendResponse(401, 'N', '인증방식이 잘못되었습니다.');

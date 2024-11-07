@@ -66,11 +66,11 @@ class User extends ApiTopController
 
         // 엑세스 토큰 생성 (유효기간 1시간)
         $accessToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1);
-        $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
+        $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
         $refreshToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15);
-        $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
+        $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken], "join 리프레시 토큰 업데이트");
@@ -85,8 +85,8 @@ class User extends ApiTopController
             '회원가입이 성공적으로 완료되었습니다.',
             null,
             [
-                "A-Token" => $accessToken,
-                "R-Token" => $refreshToken
+                getenv('ACCESS_TOKEN_NAME') => $accessToken,
+                getenv('REFRESH_TOKEN_NAME') => $refreshToken
             ]
         );
     }
@@ -115,11 +115,11 @@ class User extends ApiTopController
 
         // 엑세스 토큰 생성 (유효기간 1시간)
         $accessToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1);
-        $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
+        $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
         $refreshToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15);
-        $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
+        $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "login 리프레시토큰 업데이트");
@@ -134,8 +134,8 @@ class User extends ApiTopController
             '로그인이 성공적으로 완료되었습니다.',
             null,
             [
-                "A-Token" => $accessToken,
-                "R-Token" => $refreshToken
+                getenv('ACCESS_TOKEN_NAME') => $accessToken,
+                getenv('REFRESH_TOKEN_NAME') => $refreshToken
             ]
         );
     }
@@ -195,11 +195,11 @@ class User extends ApiTopController
 
         // 엑세스 토큰 생성 (유효기간 1시간)
         $accessToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1);
-        $this->utilPack->makeCookie('A-Token', $accessToken, 0, 1);
+        $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
         $refreshToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15);
-        $this->utilPack->makeCookie('R-Token', $refreshToken, 15);
+        $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "edit 리프레시토큰 업데이트");
@@ -234,10 +234,10 @@ class User extends ApiTopController
         $this->utilPack->handleTransactionStart($this->userModel);
 
         // 엑세스 토큰 만료
-        $this->utilPack->makeCookie('A-Token', "", -1);
+        $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), "", -1);
 
         // 리프레시 토큰 만료
-        $this->utilPack->makeCookie('R-Token', "", -1);
+        $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), "", -1);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => ""], "logout 로그아웃  리프레시토큰 업데이트");
