@@ -48,13 +48,10 @@ class User extends ApiTopController
         ];
 
         // 트랜잭션 시작
-        $this->utilPack->handleTransactionStart($this->userModel);
+        $this->utilPack->startTransaction();
 
         // 데이터 추가
-        $this->userModel->insert_DBV($data, " join 추가 ");
-
-        // 방금 추가된 레코드의 기본 키 값 가져오기
-        $userIdx = $this->userModel->insertID();
+        $userIdx = $this->userModel->insert_DBV($data, " join 추가 ");
 
         // 추가 성공했는지 확인
         if (empty($userIdx)) {
@@ -65,18 +62,18 @@ class User extends ApiTopController
         $user = $this->userModel->find($userIdx);
 
         // 엑세스 토큰 생성 (유효기간 1시간)
-        $accessToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1);
+        $accessToken = $this->utilPack->generateJWT($user, 0, 1);
         $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
-        $refreshToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15);
+        $refreshToken = $this->utilPack->generateJWT($user, 15);
         $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($userIdx, ['m_token' => $refreshToken], "join 리프레시 토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->handleTransactionEnd($this->userModel);
+        $this->utilPack->endTransaction();
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(
@@ -111,21 +108,21 @@ class User extends ApiTopController
         }
 
         // 트랜잭션 시작
-        $this->utilPack->handleTransactionStart($this->userModel);
+        $this->utilPack->startTransaction();
 
         // 엑세스 토큰 생성 (유효기간 1시간)
-        $accessToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1);
+        $accessToken = $this->utilPack->generateJWT($user, 0, 1);
         $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
-        $refreshToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15);
+        $refreshToken = $this->utilPack->generateJWT($user, 15);
         $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "login 리프레시토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->handleTransactionEnd($this->userModel);
+        $this->utilPack->endTransaction();
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(
@@ -161,7 +158,6 @@ class User extends ApiTopController
         $selectUser = "SELECT * from _member where m_id = ? AND m_is_use = 'Y' limit 1";
         $user = $this->userModel->select_DBV($selectUser, [$userId], "User/edits 1")[0];
 
-
         if (empty($user['m_idx'])) {
             $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');
         }
@@ -181,7 +177,7 @@ class User extends ApiTopController
         $editUser["m_email"] = $m_email;
 
         // 트랜잭션 시작
-        $this->utilPack->handleTransactionStart($this->userModel);
+        $this->utilPack->startTransaction();
 
         // 업데이트
         $this->userModel->update_DBV(
@@ -194,19 +190,18 @@ class User extends ApiTopController
         $user["m_id"] = $m_id;
 
         // 엑세스 토큰 생성 (유효기간 1시간)
-        $accessToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1);
+        $accessToken = $this->utilPack->generateJWT($user, 0, 1);
         $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
 
         // 리프레시 토큰 생성 (유효기간 15일)
-        $refreshToken = $this->utilPack->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15);
+        $refreshToken = $this->utilPack->generateJWT($user, 15);
         $this->utilPack->makeCookie(getenv('REFRESH_TOKEN_NAME'), $refreshToken, 15);
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "edit 리프레시토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->handleTransactionEnd($this->userModel);
-
+        $this->utilPack->endTransaction();
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '회원수정이 성공적으로 완료되었습니다.');
@@ -231,7 +226,7 @@ class User extends ApiTopController
         }
 
         // 트랜잭션 시작
-        $this->utilPack->handleTransactionStart($this->userModel);
+        $this->utilPack->startTransaction();
 
         // 엑세스 토큰 만료
         $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), "", -1);
@@ -243,7 +238,7 @@ class User extends ApiTopController
         $this->userModel->update_DBV($user['m_idx'], ['m_token' => ""], "logout 로그아웃  리프레시토큰 업데이트");
 
         // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->handleTransactionEnd($this->userModel);
+        $this->utilPack->endTransaction();
 
 
         // 성공 응답 반환

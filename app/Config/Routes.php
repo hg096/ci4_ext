@@ -29,13 +29,11 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], function($routes) 
     $routes->delete('user/(:any)/(:any)', 'User::$1/$2');
 
 
-
     $routes->get('adm/user/(:any)', 'UserAdm::$1');
     $routes->get('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
     $routes->post('adm/user/(:any)', 'UserAdm::$1');
     $routes->put('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
     $routes->delete('adm/user/(:any)/(:any)', 'UserAdm::$1/$2');
-
 
     $routes->get('adm/menu/(:any)', 'Menu::$1');
     $routes->get('adm/menu/(:any)/(:any)', 'Menu::$1/$2');

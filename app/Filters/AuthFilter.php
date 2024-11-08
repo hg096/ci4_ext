@@ -25,7 +25,7 @@ class AuthFilter implements FilterInterface
         $refreshToken = $_COOKIE[getenv('REFRESH_TOKEN_NAME')] ?? null;
 
         if (empty($accessToken)) {
-            $this->utilPack->sendResponse(401, 'N', '인증방식이 잘못되었습니다.');
+            $this->utilPack->sendResponse(404, 'N', '인증방식이 잘못되었습니다.');
         }
 
         $this->utilPack->refreshAccessToken($accessToken, $refreshToken);

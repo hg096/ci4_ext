@@ -25,8 +25,8 @@ class modelDb
         // 데이터 추가 시도
         if (!$model->insert($data, true)) {
 
-            // 데이터베이스 연결 인스턴스 가져오기
-            $db = \Config\Database::connect();
+            // DB 연결 인스턴스 가져오기
+            $db = $this->utilPack->getDb();
 
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
@@ -34,30 +34,17 @@ class modelDb
             // 유효성 검사 오류 가져오기
             $validationErrors = $model->errors();
 
+            $error = $db->error()['message'] ?? "!!UNKNOWN ERROR!!"; // ['code' => SQL 상태 코드, 'message' => 에러 메시지]
+
             // 트랜잭션 롤백
-            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
-                $db->transRollback();
-            }
+            $db->transRollback();
 
-            // 유효성 검사 오류가 있는 경우
-            if (!empty($validationErrors)) {
-                // 유효성 검사 실패 시 로그 남기기
-                log_message('critical', "\n\n insert_MDB Validation Error - | $message | LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+            // 오류 로그 남기기
+            log_message('critical', "\n\n !!!!! insert_MDB Error - | $message \n| LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . "\n $error \n| SQL | $lastQuery \n\n");
 
-                // 401 에러 반환
-                $this->utilPack->sendResponse(401, 'N', "이미 사용중인 정보입니다.", $validationErrors);
-            } else {
-                // 쿼리 에러인 경우
-                // 데이터베이스 에러 정보 가져오기
-                $error = $db->error(); // ['code' => SQL 상태 코드, 'message' => 에러 메시지]
-                $errorMessage = $error['message'] ?? 'Unknown error';
+            // 401 에러 반환
+            $this->utilPack->sendResponse(401, 'N', "추가에 실패했습니다.");
 
-                // 쿼리 오류 로그 남기기
-                log_message('critical', "\n\n insert_MDB SQL Error - | $message | LOG | " . json_encode($error, JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
-
-                // 500 에러 반환
-                $this->utilPack->sendResponse(401, 'N', '추가에 실패했습니다.');
-            }
         }
 
         // 성공 시 추가된 레코드의 ID 반환
@@ -69,9 +56,8 @@ class modelDb
     // (!ex!) $where = ['( sam_idx = ? OR sam_type = ? ) and ( sam2_idx = ? OR sam2_type = ? )' => [1, 'ba', 13, 'qa'], ]
     public function update_MDB(Model $model, int $PKId, array $data, $message = "수정 에러", array $where = [])
     {
-
-
         $updateValidationRules = [];
+        $db = $this->utilPack->getDb(); // DB 연결 인스턴스 가져오기
 
         // 수정 요청이 온것만 체크
         foreach ($data as $data_key => $data_value) {
@@ -164,16 +150,12 @@ class modelDb
             if (!$validation->run($validationData)) {
 
                 // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-                // log_message('critical', "\n\n update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE)."\n\n");
+                log_message('critical', "\n\n !!!!! update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE)."\n\n");
 
                 $validationErrors = $validation->getErrors();
 
-                // 직접 DB 연결을 가져와 오류 확인
-                $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
                 // 트랜잭션 롤백
-                if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
-                    $db->transRollback();
-                }
+                $db->transRollback();
 
                 // 401 에러 반환
                 $this->utilPack->sendResponse(401, 'N', "이미 사용중인 정보입니다.", $validationErrors);
@@ -210,19 +192,15 @@ class modelDb
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
         if (!$result) {
-            // 직접 DB 연결을 가져와 오류 확인
-            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
 
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
-            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('critical', "\n\n update_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+            // 오류 로그 남기기
+            log_message('critical', "\n\n !!!!! update_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
             // 트랜잭션 롤백
-            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
-                $db->transRollback();
-            }
+            $db->transRollback();
 
             // 401 에러 반환
             $this->utilPack->sendResponse(401, 'N', '수정에 실패했습니다.');
@@ -239,6 +217,7 @@ class modelDb
 
         // 쿼리 빌더 생성
         $builder = $model->builder();
+        $db = $this->utilPack->getDb(); // DB 연결 인스턴스 가져오기
 
         // 사칙 연산 처리
         // 'points' => '+=10',  // points 필드에 10을 더함
@@ -281,18 +260,15 @@ class modelDb
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
         if (!$result) {
-            // 직접 DB 연결을 가져와 오류 확인
-            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
 
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
-            // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-            log_message('critical', "\n\n updateDel_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+            // 오류 로그 남기기
+            log_message('critical', "\n\n !!!!! updateDel_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+
             // 트랜잭션 롤백
-            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
-                $db->transRollback();
-            }
+            $db->transRollback();
 
             // 401 에러 반환
             $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
@@ -307,7 +283,7 @@ class modelDb
     {
         // 쿼리 빌더 생성
         $builder = $model->builder();
-
+        $db = $this->utilPack->getDb(); // DB 연결 인스턴스 가져오기
 
         // 삭제 실행
         $result = null;
@@ -329,20 +305,15 @@ class modelDb
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
         if (!$result) {
-            // 직접 DB 연결을 가져와 오류 확인
-            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
 
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
             // 오류 로그 남기기
-            log_message('critical', "\n\n delete_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
-
+            log_message('critical', "\n\n !!!!! delete_MDB SQL - | $message | LOG | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
             // 트랜잭션 롤백
-            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
-                $db->transRollback();
-            }
+            $db->transRollback();
 
             // 401 에러 반환
             $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
@@ -356,29 +327,25 @@ class modelDb
     public function select_MDB(string $sql, array $params = [], $message = "조회 에러"): array
     {
         // 데이터베이스 연결 인스턴스 가져오기 (기본: CodeIgniter의 기본 DB)
-        $db = \Config\Database::connect();
+        $db = $this->utilPack->getDb(); // DB 연결 인스턴스 가져오기
+
         $query = $db->query($sql, $params);
 
         // 쿼리 실행 결과 확인 및 오류 로그 출력
         if (!$query) {
-            // 직접 DB 연결을 가져와 오류 확인
-            $db = \Config\Database::connect(); // DB 연결 인스턴스 가져오기
 
             // 마지막 실행된 쿼리 가져오기
             $lastQuery = (string)$db->getLastQuery(); // 실행된 마지막 쿼리 가져오기
 
             // 오류 로그 남기기
-            log_message('critical', "\n\n select_MDB SQL - | $message | LOG | " . json_encode($db->error(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
+            log_message('critical', "\n\n !!!!! select_MDB SQL - | $message | LOG | " . json_encode($db->error(), JSON_UNESCAPED_UNICODE) . " | SQL | $lastQuery \n\n");
 
             // 트랜잭션 롤백
-            if ($db->transStatus()) { // 트랜잭션이 이미 시작된 경우만 롤백
-                $db->transRollback();
-            }
+            $db->transRollback();
 
             // 401 에러 반환
             $this->utilPack->sendResponse(401, 'N', '조회에 실패했습니다.');
         }
-
 
         return $query->getResultArray();
     }

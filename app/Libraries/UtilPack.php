@@ -24,6 +24,8 @@ class UtilPack
     private $encryptionKey;
     private $ivKey;
 
+    private $db;
+
     public function __construct()
     {
         // 환경 변수에서 비밀 키 가져오기
@@ -32,6 +34,8 @@ class UtilPack
         $this->encryptionKey = getenv('JWT_ENCRYPTION_KEY');
         // 초기화 벡터 (16 바이트, 안전한 난수 사용 권장)
         $this->ivKey = getenv('JWT_IV_KEY');
+
+        $this->db = \Config\Database::connect(); // DB 인스턴스 초기화
     }
 
     // jwt 생성
@@ -44,7 +48,7 @@ class UtilPack
         } else if (!empty((int)$hours)) {
             $expiryInSeconds = (int)$hours * 3600; // 시간(hours) 단위를 초(second) 단위로 변환
         } else {
-            $expiryInSeconds = 7 * 86400;
+            $expiryInSeconds = 7 * 86400; // 기본 7일
         }
 
         $expiration = (int)$issuedAt + (int)$expiryInSeconds;
@@ -58,12 +62,12 @@ class UtilPack
         }
 
         $payload = [
-            'iss' => $domain,  // 토큰 발급자
-            'aud' => $domain,  // 토큰 대상자
-            'iat' => $issuedAt,          // 발급 시간
-            'exp' => $expiration,        // 만료 시간
-            'uid' => $user['uid'],        // 사용자 ID
-            'ulv' => $user['ulv'],        // 사용자 레벨
+            'iss' => $domain,           // 토큰 발급자
+            'aud' => $domain,           // 토큰 대상자
+            'iat' => $issuedAt,         // 발급 시간
+            'exp' => $expiration,       // 만료 시간
+            'uid' => !empty($user['uid']) ? $user['uid'] : $user['m_id'],        // 사용자 ID
+            'ulv' => !empty($user['ulv']) ?  $user['ulv'] : $user['m_level'],    // 사용자 레벨
         ];
 
         // JSON으로 페이로드 변환
@@ -140,12 +144,10 @@ class UtilPack
         // 3. 데이터베이스에서 사용자 조회
         $userModel = new UserModel();
         // $user = $userModel->find($userId);
-        $user = $userModel
-            ->where([
-                'm_id' => $userId,
-                'm_is_use' => 'Y',
-            ])
-            ->first();
+
+        // 사용자를 ID로 조회
+        $selectUser = "SELECT * from _member where m_id = ? AND m_is_use = 'Y' limit 1";
+        $user = $userModel->select_DBV($selectUser, [$userId], "fn refreshAccessToken")[0];
 
         if (!$user) {
             $this->sendResponse(401, 'OUT', '다시 로그인하세요.');
@@ -157,11 +159,11 @@ class UtilPack
         }
 
         // 4. 엑세스 토큰 재발급 (유효기간 1시간)
-        $newAccessToken = $this->generateJWT($user, 0, 1); // 1시간 유효
+        $newAccessToken = $this->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 0, 1); // 1시간 유효
         $this->makeCookie(getenv('ACCESS_TOKEN_NAME'), $newAccessToken, 0, 1);
 
         // 5. 새로운 리프레시 토큰 발급 및 저장
-        $newRefreshToken = $this->generateJWT($user, 15); // 15일 유효
+        $newRefreshToken = $this->generateJWT(["uid" => $user["m_id"], "ulv" => $user["m_level"]], 15); // 15일 유효
         $this->makeCookie(getenv('REFRESH_TOKEN_NAME'), $newRefreshToken, 15);
         $userModel->update($user['m_idx'], ['m_token' => $newRefreshToken]);
 
@@ -220,30 +222,33 @@ class UtilPack
             // 'samesite' => 'Lax', // CSRF 방지
             'samesite' => 'None', // 크로스 도메인 요청 허용, 앱api 사용시
         ]);
-
     }
 
-    // 트렌젝션 시작
-    public function handleTransactionStart(Model $model)
+    // 트랜젝션 시작
+    public function startTransaction()
     {
-        // 트랜잭션 시작
-        $model->transStart();
+        // 데이터베이스 연결 인스턴스 가져오기
+        $this->db->transBegin();
     }
 
-    // 트렌젝션 종료
-    public function handleTransactionEnd(Model $model, string $errorMessage = "처리에 실패했습니다.")
+    // 트랜젝션 종료
+    public function endTransaction(string $errorMessage = "처리에 실패했습니다.")
     {
-        // 트랜잭션 종료
-        $model->transComplete();
-
-        // 트랜잭션 상태 확인
-        if ($model->transStatus() === false) {
-            log_message('error', "!트랜잭션 에러! - | " . json_encode($model->errors(), JSON_UNESCAPED_UNICODE));
-
-            $this->sendResponse(400, 'N', (string)$errorMessage);
+        if ($this->db->transStatus() === false) {
+            // 트랜잭션 롤백
+            $this->db->transRollback();
+            log_message('error', "!트랜잭션 에러! - | " . json_encode($this->db->error(), JSON_UNESCAPED_UNICODE));
+            $this->sendResponse(401, 'N', (string)$errorMessage);
+        } else {
+            // 트랜잭션 커밋
+            $this->db->transCommit();
         }
+    }
 
-        return true;
+    // 현재 트랜잭션에 사용 중인 DB 인스턴스를 반환
+    public function getDb()
+    {
+        return $this->db;
     }
 
     // 프로세스 종료시
@@ -278,8 +283,14 @@ class UtilPack
 
     }
 
+    // 접근 권한 체크 && 토큰이 있어야만 접근가능한 페이지 체크
     public function checkAuthLevel(string $authData, array $conditions)
     {
+
+        if (empty($authData)) {
+            $this->sendResponse(404, 'N', "잘못된 요청입니다.");
+        }
+
         // $conditions = [
         //     ['group' => 'u', 'level' => 2], // u_2 이상 허용
         //     ['group' => 'a', 'level' => 3], // a_3 이상 허용
@@ -287,13 +298,13 @@ class UtilPack
 
         // authData를 그룹과 레벨로 분리
         $authData_arr = explode("_", $authData);
-        $authGroup = $authData_arr[0];
-        $authLevel = (int)$authData_arr[1];
+        $authGroup = !empty($authData_arr[0]) ? $authData_arr[0] : "";
+        $authLevel = !empty((int)$authData_arr[1]) ? (int)$authData_arr[1] : 0;
 
         // 조건 중 하나라도 만족하면 통과
         foreach ($conditions as $condition) {
             $group = $condition['group'];
-            $level = $condition['level'] ?? 0; // 레벨이 지정되지 않으면 0으로 설정
+            $level = (int)$condition['level'] ?? 0; // 레벨이 지정되지 않으면 0으로 설정
 
             if ($authGroup === $group && $authLevel >= $level) {
                 return; // 조건 만족 시 함수 종료
@@ -301,6 +312,8 @@ class UtilPack
         }
 
         // 조건을 모두 만족하지 못한 경우
-        $this->sendResponse(400, 'N', "접근 권한이 없습니다.");
+        $this->sendResponse(404, 'N', "잘못된 요청입니다.");
     }
+
+
 }
