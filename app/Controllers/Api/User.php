@@ -6,14 +6,12 @@ namespace App\Controllers\Api;
 use App\Controllers\Top\ApiTopController;
 
 use App\Models\UserModel;
-use App\Libraries\RequestHelper;
 
 
 class User extends ApiTopController
 {
 
     private $userModel;
-    private $requestHelper;
 
     public function __construct()
     {
@@ -22,7 +20,7 @@ class User extends ApiTopController
 
         // 모델 인스턴스 생성
         $this->userModel = new UserModel();
-        $this->requestHelper = new RequestHelper();
+
     }
 
     public function index()
@@ -143,7 +141,6 @@ class User extends ApiTopController
         // 요청만 허용
         $this->requestHelper->onlyAllowedMethods(['post']);
         $this->utilPack->checkAuthLevel($this->JWTData->ulv, ['group' => 'u']);
-
 
         // 요청 데이터 가져오기
         $m_id = $this->request->getPost('m_id');

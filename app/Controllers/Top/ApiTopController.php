@@ -5,19 +5,20 @@ namespace App\Controllers\Top;
 
 use CodeIgniter\RESTful\ResourceController;
 use App\Libraries\UtilPack;
-
+use App\Libraries\RequestHelper;
 
 class ApiTopController extends ResourceController
 {
 
     protected $utilPack;
     protected $JWTData;
-
+    protected $requestHelper;
 
     public function __construct()
     {
         // UtilPack 인스턴스 생성
         $this->utilPack = new UtilPack();
+        $this->requestHelper = new RequestHelper();
 
         // JWT 검증 및 데이터 저장
         $accessValidation = $this->utilPack->checkJWT();

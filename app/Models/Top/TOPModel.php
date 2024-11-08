@@ -19,19 +19,19 @@ class TOPModel extends Model
         return $this->modelDb->insert_MDB($this, $data, $message);
     }
 
-    public function update_DBV(int $id, array $data, string $message, array $where = [])
+    public function update_DBV(int $PKId, array $data, string $message, array $where = [])
     {
-        return $this->modelDb->update_MDB($this, $id, $data, $message, $where);
+        return $this->modelDb->update_MDB($this, $PKId, $data, $message, $where);
     }
 
-    public function updateDel_DBV(int $id, array $data, string $message, array $where = [])
+    public function updateDel_DBV(int $PKId, array $data, string $message, array $where = [])
     {
-        return $this->modelDb->updateDel_MDB($this, $id, $data, $message, $where);
+        return $this->modelDb->updateDel_MDB($this, $PKId, $data, $message, $where);
     }
 
-    public function delete_DBV(int $id, array $data, string $message, array $where = [])
+    public function delete_DBV(int $PKId, string $message, array $where = [])
     {
-        return $this->modelDb->delete_MDB($this, $id, $message, $where);
+        return $this->modelDb->delete_MDB($this, $PKId, $message, $where);
     }
 
     public function select_DBV(string $sql, array $params = [], $message = "")

@@ -6,14 +6,12 @@ namespace App\Controllers\Api;
 use App\Controllers\Top\ApiTopController;
 
 use App\Models\UserAdminModel;
-use App\Libraries\RequestHelper;
 
 
 class UserAdm extends ApiTopController
 {
 
     private $userAdmModel;
-    private $requestHelper;
 
     public function __construct()
     {
@@ -22,7 +20,6 @@ class UserAdm extends ApiTopController
 
         // 모델 인스턴스 생성
         $this->userAdmModel = new UserAdminModel();
-        $this->requestHelper = new RequestHelper();
     }
 
     public function index()

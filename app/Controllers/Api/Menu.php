@@ -6,14 +6,12 @@ namespace App\Controllers\Api;
 use App\Controllers\Top\ApiTopController;
 
 use App\Models\AdminMenuModel;
-use App\Libraries\RequestHelper;
 
 
 class Menu extends ApiTopController
 {
 
     private $menuModel;
-    private $requestHelper;
 
     public function __construct()
     {
@@ -22,7 +20,7 @@ class Menu extends ApiTopController
 
         // 모델 인스턴스 생성
         $this->menuModel = new AdminMenuModel();
-        $this->requestHelper = new RequestHelper();
+
     }
 
     public function index()
