@@ -18,6 +18,7 @@ class ApiTopController extends ResourceController
     {
         // UtilPack 인스턴스 생성
         $this->utilPack = new UtilPack();
+
         $this->requestHelper = new RequestHelper();
 
         // JWT 검증 및 데이터 저장
@@ -26,7 +27,6 @@ class ApiTopController extends ResourceController
         if (!empty($accessValidation["data"])) {
             $this->JWTData = $accessValidation["data"];
         }
-
     }
 
 }

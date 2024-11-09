@@ -29,12 +29,23 @@ class AuthFilter implements FilterInterface
         }
 
         $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
+
+        if (strtoupper($request->getMethod()) !== 'GET') {
+            // 트랜잭션 시작
+            $this->utilPack->startTransaction();
+        }
     }
 
 
     // 응답이 사용자에게 반환되기 전에 실행
+    // !!!!! 컨트롤러에서 exit() 을 사용시에 after가 동작하지 않아서 유의
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
         // 후처리 로직 필요 시 추가
+
+        if (strtoupper($request->getMethod()) !== 'GET') {
+            // 트랜잭션 종료 및 결과 처리
+            $this->utilPack->endTransaction();
+        }
     }
 }

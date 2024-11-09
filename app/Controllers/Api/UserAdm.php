@@ -43,9 +43,6 @@ class UserAdm extends ApiTopController
             'ma_is_use' => 'Y', // 활성화 상태 기본값
         ];
 
-        // 트랜잭션 시작
-        $this->utilPack->startTransaction();
-
         // 데이터 추가
         $userIdx = $this->userAdmModel->insert_DBV($data, "UserAdm/join 추가 ");
 
@@ -67,9 +64,6 @@ class UserAdm extends ApiTopController
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userAdmModel->update_DBV($userIdx, ['ma_token' => $refreshToken], "UserAdm/join 리프레시 토큰 업데이트");
-
-        // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->endTransaction();
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(
@@ -103,9 +97,6 @@ class UserAdm extends ApiTopController
             $this->utilPack->sendResponse(400, 'N', '아이디 또는 비밀번호가 올바르지 않습니다.');
         }
 
-        // 트랜잭션 시작
-        $this->utilPack->startTransaction();
-
         // 엑세스 토큰 생성 (유효기간 1시간)
         $accessToken = $this->utilPack->generateJWT($user, 0, 1);
         $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), $accessToken, 0, 1);
@@ -116,9 +107,6 @@ class UserAdm extends ApiTopController
 
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userAdmModel->update_DBV($user['ma_idx'], ['ma_token' => $refreshToken], "UserAdm/login 리프레시토큰 업데이트");
-
-        // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->endTransaction();
 
         // 성공 응답 반환
         $this->utilPack->sendResponse(
@@ -138,14 +126,14 @@ class UserAdm extends ApiTopController
     {
         // 요청만 허용
         $this->requestHelper->onlyAllowedMethods(['post']);
-        $this->utilPack->checkAuthLevel($this->JWTData->ulv, ['group' => 'a']);
+        $this->utilPack->checkAuthLevel($this->JWTData["ulv"], [['group' => 'a']]);
 
         // 요청 데이터 가져오기
         $ma_nickname = $this->request->getPost('ma_nickname');
         $ma_pass = $this->request->getPost('ma_pass');
 
         // 토큰의 사용자 ID 추출
-        $userId = $this->JWTData->uid;
+        $userId = $this->JWTData["uid"];
 
         // 사용자를 ID로 조회
         $selectUser = "SELECT * from _member_admin where ma_id = ? AND ma_is_use = 'Y' limit 1";
@@ -168,9 +156,6 @@ class UserAdm extends ApiTopController
 
         $editUser["ma_nickname"] = $ma_nickname;
 
-        // 트랜잭션 시작
-        $this->utilPack->startTransaction();
-
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userAdmModel->update_DBV(
             $user['ma_idx'],
@@ -192,9 +177,6 @@ class UserAdm extends ApiTopController
         // 리프레시 토큰을 m_token 필드에 업데이트
         // $this->userAdmModel->update_DBV($user['m_idx'], ['m_token' => $refreshToken], "UserAdm/edit 리프레시토큰 업데이트");
 
-        // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->endTransaction();
-
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '회원수정이 성공적으로 완료되었습니다.');
     }
@@ -204,10 +186,10 @@ class UserAdm extends ApiTopController
     {
         // 요청만 허용
         $this->requestHelper->onlyAllowedMethods(['post']);
-        $this->utilPack->checkAuthLevel($this->JWTData->ulv, ['group' => 'a']);
+        $this->utilPack->checkAuthLevel($this->JWTData["ulv"], [['group' => 'a']]);
 
         // 토큰의 사용자 ID 추출
-        $userId = $this->JWTData->uid;
+        $userId = $this->JWTData["uid"];
 
         // 사용자를 ID로 조회
         $selectUser = "SELECT * from _member_admin where ma_id = ? AND ma_is_use = 'Y' limit 1";
@@ -216,9 +198,6 @@ class UserAdm extends ApiTopController
         if (empty($user['ma_idx'])) {
             $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');
         }
-
-        // 트랜잭션 시작
-        $this->utilPack->startTransaction();
 
         // 엑세스 토큰 만료
         $this->utilPack->makeCookie(getenv('ACCESS_TOKEN_NAME'), "", -1);
@@ -229,14 +208,7 @@ class UserAdm extends ApiTopController
         // 리프레시 토큰을 m_token 필드에 업데이트
         $this->userAdmModel->update_DBV($user['ma_idx'], ['ma_token' => ""], "UserAdm/logout 로그아웃  리프레시토큰 업데이트");
 
-        // 트랜잭션 종료 및 결과 처리
-        $this->utilPack->endTransaction();
-
         // 성공 응답 반환
         $this->utilPack->sendResponse(200, 'Y', '로그아웃이 성공적으로 완료되었습니다.');
     }
-
-
-
-
 }

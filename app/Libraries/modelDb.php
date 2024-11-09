@@ -42,8 +42,8 @@ class modelDb
             // 오류 로그 남기기
             log_message('critical', "\n\n !!!!! insert_MDB Error - | $message \n| LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . "\n $error \n| SQL | $lastQuery \n\n");
 
-            // 401 에러 반환
-            $this->utilPack->sendResponse(401, 'N', "추가에 실패했습니다.");
+            // 404 에러 반환
+            $this->utilPack->sendResponse(404, 'N', "추가에 실패했습니다.");
 
         }
 
@@ -103,7 +103,7 @@ class modelDb
                 ->getRowArray();
 
             if (!$currentValues) {
-                $this->utilPack->sendResponse(401, 'N', '데이터가 존재하지 않습니다.');
+                $this->utilPack->sendResponse(404, 'N', '데이터가 존재하지 않습니다.');
             }
 
             foreach ($validationData as $key => $value) {
@@ -148,17 +148,16 @@ class modelDb
 
             // 유효성 검사 수행
             if (!$validation->run($validationData)) {
+                // $validationErrors = $validation->getErrors();
 
                 // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
                 log_message('critical', "\n\n !!!!! update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE)."\n\n");
 
-                $validationErrors = $validation->getErrors();
-
                 // 트랜잭션 롤백
                 $db->transRollback();
 
-                // 401 에러 반환
-                $this->utilPack->sendResponse(401, 'N', "이미 사용중인 정보입니다.", $validationErrors);
+                // 404 에러 반환
+                $this->utilPack->sendResponse(400, 'N', "입력을 다시 확인해주세요.");
             }
         }
 
@@ -202,8 +201,8 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 401 에러 반환
-            $this->utilPack->sendResponse(401, 'N', '수정에 실패했습니다.');
+            // 404 에러 반환
+            $this->utilPack->sendResponse(404, 'N', '수정에 실패했습니다.');
         }
 
         // 쿼리 성공 시 결과 반환
@@ -270,8 +269,8 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 401 에러 반환
-            $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
+            // 404 에러 반환
+            $this->utilPack->sendResponse(404, 'N', '삭제에 실패했습니다.');
         }
 
         // 쿼리 성공 시 결과 반환
@@ -315,8 +314,8 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 401 에러 반환
-            $this->utilPack->sendResponse(401, 'N', '삭제에 실패했습니다.');
+            // 404 에러 반환
+            $this->utilPack->sendResponse(404, 'N', '삭제에 실패했습니다.');
         }
 
         // 성공 시 결과 반환
@@ -343,8 +342,8 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 401 에러 반환
-            $this->utilPack->sendResponse(401, 'N', '조회에 실패했습니다.');
+            // 404 에러 반환
+            $this->utilPack->sendResponse(404, 'N', '조회에 실패했습니다.');
         }
 
         return $query->getResultArray();

@@ -28,7 +28,7 @@ class RequestHelper
         $allowedMethods = array_map('strtoupper', $methods); // 메서드 대문자 변환
 
         if (!in_array($request->getMethod(), $allowedMethods)) {
-            // 401 에러 반환
+            // 404 에러 반환
             $this->utilPack->sendResponse(404, 'ERROR', '잘못된 요청입니다.');
         }
 

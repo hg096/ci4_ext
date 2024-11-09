@@ -36,7 +36,24 @@ class UtilPack
         $this->ivKey = getenv('JWT_IV_KEY');
 
         $this->db = \Config\Database::connect(); // DB 인스턴스 초기화
+
+        // __get 사용시 __construct 에서 호출시에는 지연 로딩된 utilPack 객체 사용
+        // $accessValidation = $this->__get('utilPack')->checkJWT();
     }
+
+
+    // UtilPack에 추가되는 클래스가 많아질때 클래스 지연로딩을 사용
+    public function __get($name)
+    {
+        // if ($name === 'utilPack') {
+        //     if ($this->utilPack === null) {
+        //         // 처음 접근 시에만 인스턴스 생성
+        //         $this->utilPack = new utilPack();
+        //     }
+        //     return $this->utilPack;
+        // }
+    }
+
 
     // jwt 생성
     public function generateJWT($user, $days = 0, $hours = 0)
@@ -180,7 +197,8 @@ class UtilPack
 
         if (!empty($accessToken)) {
             $accessValidation = $this->validateJWT($accessToken);
-            if (empty($accessValidation["data"]->uid)) {
+
+            if (empty($accessValidation["data"]["uid"])) {
                 // 응답 반환 및 스크립트 종료
                 $this->sendResponse(401, 'ATokenEnd', '다시 시도해주세요.');
             }
@@ -238,7 +256,7 @@ class UtilPack
             // 트랜잭션 롤백
             $this->db->transRollback();
             log_message('error', "!트랜잭션 에러! - | " . json_encode($this->db->error(), JSON_UNESCAPED_UNICODE));
-            $this->sendResponse(401, 'N', (string)$errorMessage);
+            $this->sendResponse(400, 'N', (string)$errorMessage);
         } else {
             // 트랜잭션 커밋
             $this->db->transCommit();
@@ -252,9 +270,20 @@ class UtilPack
     }
 
     // 프로세스 종료시
+    // 일반적인 요청실패시 400
+    // 인증실패시 401
+    // 나머지 404
     public function sendResponse(int $statusCode, string $status, string $message, array $data = null, array $headers = null): void
     {
         $response = Services::response();
+
+        if ($statusCode >= 404 && ENVIRONMENT !== 'development') {
+            $statusCode = 404;
+            $status = "ERROR";
+            $message = '올바르지 않은 요청입니다.';
+            $data = null;
+            $headers = null;
+        }
 
         $responseArray = [
             'status' => $status,
@@ -279,7 +308,7 @@ class UtilPack
             ->setJSON($responseArray)
             ->send(); // 즉시 응답 반환 및 종료
 
-        exit(); // 스크립트 종료
+        return;
 
     }
 
@@ -299,14 +328,19 @@ class UtilPack
         // authData를 그룹과 레벨로 분리
         $authData_arr = explode("_", $authData);
         $authGroup = !empty($authData_arr[0]) ? $authData_arr[0] : "";
-        $authLevel = !empty((int)$authData_arr[1]) ? (int)$authData_arr[1] : 0;
+        $authLevel = !empty($authData_arr[1]) ? $authData_arr[1] : 0;
 
         // 조건 중 하나라도 만족하면 통과
         foreach ($conditions as $condition) {
-            $group = $condition['group'];
-            $level = (int)$condition['level'] ?? 0; // 레벨이 지정되지 않으면 0으로 설정
+            if (is_array($condition)) {
+                $group = $condition['group'];
+                $level = $condition['level'] ?? 0; // 레벨이 지정되지 않으면 0으로 설정
+            } else {
+                $group = $conditions['group'];
+                $level = $conditions['level'] ?? 0; // 레벨이 지정되지 않으면 0으로 설정
+            }
 
-            if ($authGroup === $group && $authLevel >= $level) {
+            if ($authGroup === $group && (int)$authLevel >= (int)$level) {
                 return; // 조건 만족 시 함수 종료
             }
         }
@@ -314,6 +348,4 @@ class UtilPack
         // 조건을 모두 만족하지 못한 경우
         $this->sendResponse(404, 'N', "잘못된 요청입니다.");
     }
-
-
 }
