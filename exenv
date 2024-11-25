@@ -69,12 +69,12 @@ CI_ENVIRONMENT = development
 
 # logger.threshold = 4
 
-# 32 바이트 난수
+# 32자 난수
 JWT_SECRET_KEY =
 JWT_DOMAIN =
-# AES-256 암호화 키 (32 바이트)
+# AES-256 암호화 키 (32자)
 JWT_ENCRYPTION_KEY =
-# 초기화 벡터 (16 바이트, 안전한 난수 사용 권장)
+# 초기화 벡터 (16자, 안전한 난수 사용 권장)
 JWT_IV_KEY =
 # 사이트 허용
 CORS_SITE =

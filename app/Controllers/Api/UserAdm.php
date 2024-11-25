@@ -90,7 +90,7 @@ class UserAdm extends ApiTopController
 
         // 사용자를 ID로 조회
         $selectUser = "SELECT * from _member_admin where ma_id = ? AND ma_is_use = 'Y' limit 1";
-        $user = $this->userAdmModel->select_DBV($selectUser, [$ma_id], "UserAdm/login 1")[0];
+        $user = $this->userAdmModel->select_DBV($selectUser, [$ma_id], "UserAdm/login 1")[0] ?? [];
 
         // 사용자 존재 여부 및 비밀번호 검증
         if (!$user || !password_verify($ma_pass, $user['ma_pass'])) {
@@ -126,7 +126,7 @@ class UserAdm extends ApiTopController
     {
         // 요청만 허용
         $this->requestHelper->onlyAllowedMethods(['post']);
-        $this->utilPack->checkAuthLevel($this->JWTData["ulv"], [['group' => 'a']]);
+        $this->utilPack->checkAuthLevel([['group' => 'a']]);
 
         // 요청 데이터 가져오기
         $ma_nickname = $this->request->getPost('ma_nickname');
@@ -137,7 +137,7 @@ class UserAdm extends ApiTopController
 
         // 사용자를 ID로 조회
         $selectUser = "SELECT * from _member_admin where ma_id = ? AND ma_is_use = 'Y' limit 1";
-        $user = $this->userAdmModel->select_DBV($selectUser, [$userId], "UserAdm/edits 1")[0];
+        $user = $this->userAdmModel->select_DBV($selectUser, [$userId], "UserAdm/edits 1")[0] ?? [];
 
 
         if (empty($user['ma_idx'])) {
@@ -186,14 +186,14 @@ class UserAdm extends ApiTopController
     {
         // 요청만 허용
         $this->requestHelper->onlyAllowedMethods(['post']);
-        $this->utilPack->checkAuthLevel($this->JWTData["ulv"], [['group' => 'a']]);
+        $this->utilPack->checkAuthLevel([['group' => 'a']]);
 
         // 토큰의 사용자 ID 추출
         $userId = $this->JWTData["uid"];
 
         // 사용자를 ID로 조회
         $selectUser = "SELECT * from _member_admin where ma_id = ? AND ma_is_use = 'Y' limit 1";
-        $user = $this->userAdmModel->select_DBV($selectUser, [$userId], "UserAdm/logout 1")[0];
+        $user = $this->userAdmModel->select_DBV($selectUser, [$userId], "UserAdm/logout 1")[0] ?? [];
 
         if (empty($user['ma_idx'])) {
             $this->utilPack->sendResponse(400, 'N', '회원 조회에 실패했습니다.');

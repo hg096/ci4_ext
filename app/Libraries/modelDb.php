@@ -346,6 +346,10 @@ class modelDb
             $this->utilPack->sendResponse(404, 'N', '조회에 실패했습니다.');
         }
 
+        if (empty($query->getResultArray())) {
+            return [];
+        }
+
         return $query->getResultArray();
     }
 

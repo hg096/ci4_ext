@@ -21,14 +21,16 @@ class AuthFilter implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         // 토큰 가져오기
-        $accessToken = $_COOKIE[getenv('ACCESS_TOKEN_NAME')] ?? null;
-        $refreshToken = $_COOKIE[getenv('REFRESH_TOKEN_NAME')] ?? null;
+        $accessToken = $_COOKIE[getenv('ACCESS_TOKEN_NAME')] ?? $request->getHeaderLine(getenv('ACCESS_TOKEN_NAME')) ?? null;
+        $refreshToken = $_COOKIE[getenv('REFRESH_TOKEN_NAME')] ?? $request->getHeaderLine(getenv('REFRESH_TOKEN_NAME')) ?? null;
 
-        if (empty($accessToken)) {
+        if (empty($accessToken) && empty($refreshToken)) {
             $this->utilPack->sendResponse(404, 'N', '인증방식이 잘못되었습니다.');
         }
 
-        $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
+        if (!empty($accessToken) && !empty($refreshToken)) {
+            $this->utilPack->refreshAccessToken($accessToken, $refreshToken);
+        }
 
         if (strtoupper($request->getMethod()) !== 'GET') {
             // 트랜잭션 시작
@@ -38,14 +40,13 @@ class AuthFilter implements FilterInterface
 
 
     // 응답이 사용자에게 반환되기 전에 실행
-    // !!!!! 컨트롤러에서 exit() 을 사용시에 after가 동작하지 않아서 유의
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
         // 후처리 로직 필요 시 추가
 
-        if (strtoupper($request->getMethod()) !== 'GET') {
-            // 트랜잭션 종료 및 결과 처리
-            $this->utilPack->endTransaction();
-        }
+        // if (strtoupper($request->getMethod()) !== 'GET') {
+        //     // 트랜잭션 종료 및 결과 처리
+        //     $this->utilPack->endTransaction();
+        // }
     }
 }

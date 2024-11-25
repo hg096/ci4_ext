@@ -73,10 +73,10 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
-            'cors',
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
+            'cors',
             'auth' => ['except' => ['/'
             , 'api/user/login'
             , 'api/user/join'
@@ -88,6 +88,14 @@ class Filters extends BaseFilters
         'after' => [
             // 'honeypot',
             // 'secureheaders',
+            'cors',
+            'auth' => ['except' => ['/'
+            , 'api/user/login'
+            , 'api/user/join'
+            , 'api/adm/user/login'
+            , 'api/adm/user/join'
+            , 'api/adm/menu/myMenu'
+            ]], // 로그인과 회원가입은 제외
         ],
     ];
 

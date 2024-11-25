@@ -34,7 +34,7 @@ class Menu extends ApiTopController
     {
         // 요청만 허용
         $this->requestHelper->onlyAllowedMethods(['get']);
-        // $this->utilPack->checkAuthLevel($this->JWTData["ulv"], [['group' => 'a']]);
+        // $this->utilPack->checkAuthLevel([['group' => 'a']]);
 
         // 토큰의 사용자 ID 추출
         // $userId = $this->JWTData["uid"];

@@ -6,13 +6,14 @@ namespace App\Controllers\Top;
 use CodeIgniter\RESTful\ResourceController;
 use App\Libraries\UtilPack;
 use App\Libraries\RequestHelper;
+use App\Libraries\JWTHolder;
 
 class ApiTopController extends ResourceController
 {
 
     protected $utilPack;
-    protected $JWTData;
     protected $requestHelper;
+    protected $JWTData;
 
     public function __construct()
     {
@@ -21,12 +22,12 @@ class ApiTopController extends ResourceController
 
         $this->requestHelper = new RequestHelper();
 
-        // JWT 검증 및 데이터 저장
-        $accessValidation = $this->utilPack->checkJWT();
-        // checkJWT()에서 실패 시 이미 응답을 반환하고 종료했기 때문에, 추가적인 검증은 불필요
-        if (!empty($accessValidation["data"])) {
-            $this->JWTData = $accessValidation["data"];
-        }
+        // JWTHolder 싱글턴 인스턴스를 가져옴
+        $jwtHolder = JWTHolder::getInstance();
+
+        // JWT 데이터를 가져와서 사용
+        $this->JWTData = $jwtHolder->getJWTData();
+
     }
 
 }

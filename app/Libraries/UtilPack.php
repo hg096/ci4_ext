@@ -4,7 +4,6 @@ namespace App\Libraries;
 
 use Config\Services;
 use CodeIgniter\Model;
-
 use CodeIgniter\HTTP\Response;
 
 
@@ -16,7 +15,7 @@ use Firebase\JWT\SignatureInvalidException;
 use CodeIgniter\I18n\Time;
 use Exception;
 use App\Models\UserModel;
-
+use App\Libraries\JWTHolder;
 
 class UtilPack
 {
@@ -25,6 +24,8 @@ class UtilPack
     private $ivKey;
 
     private $db;
+    private $response;
+
 
     public function __construct()
     {
@@ -37,12 +38,11 @@ class UtilPack
 
         $this->db = \Config\Database::connect(); // DB 인스턴스 초기화
 
-        // __get 사용시 __construct 에서 호출시에는 지연 로딩된 utilPack 객체 사용
-        // $accessValidation = $this->__get('utilPack')->checkJWT();
+        $this->response = service('response');
     }
 
 
-    // UtilPack에 추가되는 클래스가 많아질때 클래스 지연로딩을 사용
+    // !!!!! UtilPack에 추가되는 클래스가 많아질때 클래스 지연로딩을 사용
     public function __get($name)
     {
         // if ($name === 'utilPack') {
@@ -53,7 +53,6 @@ class UtilPack
         //     return $this->utilPack;
         // }
     }
-
 
     // jwt 생성
     public function generateJWT($user, $days = 0, $hours = 0)
@@ -83,8 +82,10 @@ class UtilPack
             'aud' => $domain,           // 토큰 대상자
             'iat' => $issuedAt,         // 발급 시간
             'exp' => $expiration,       // 만료 시간
-            'uid' => !empty($user['uid']) ? $user['uid'] : $user['m_id'],        // 사용자 ID
-            'ulv' => !empty($user['ulv']) ?  $user['ulv'] : $user['m_level'],    // 사용자 레벨
+
+            // 사용자 인증 데이터
+            'uid' => $user['m_id'] ?? $user['uid'] ?? "",
+            'ulv' => $user['m_level'] ?? $user['ulv'] ?? "",
         ];
 
         // JSON으로 페이로드 변환
@@ -139,6 +140,9 @@ class UtilPack
 
         // 엑세스 토큰이 만료되지 않은 경우
         if ($accessValidation['status'] === 'success') {
+            $jwtHolder = JWTHolder::getInstance();
+            $jwtHolder->setJWTData($accessValidation['data']);
+
             return;
         }
 
@@ -156,7 +160,7 @@ class UtilPack
         }
 
         // 리프레시 토큰의 사용자 ID 추출
-        $userId = $refreshValidation["data"]->uid;
+        $userId = $refreshValidation["data"]["uid"];
 
         // 3. 데이터베이스에서 사용자 조회
         $userModel = new UserModel();
@@ -164,7 +168,7 @@ class UtilPack
 
         // 사용자를 ID로 조회
         $selectUser = "SELECT * from _member where m_id = ? AND m_is_use = 'Y' limit 1";
-        $user = $userModel->select_DBV($selectUser, [$userId], "fn refreshAccessToken")[0];
+        $user = $userModel->select_DBV($selectUser, [$userId], "fn refreshAccessToken")[0] ?? [];
 
         if (!$user) {
             $this->sendResponse(401, 'OUT', '다시 로그인하세요.');
@@ -184,27 +188,13 @@ class UtilPack
         $this->makeCookie(getenv('REFRESH_TOKEN_NAME'), $newRefreshToken, 15);
         $userModel->update($user['m_idx'], ['m_token' => $newRefreshToken]);
 
+        $this->response->setHeader(getenv('ACCESS_TOKEN_NAME'), $newAccessToken);
+        $this->response->setHeader(getenv('REFRESH_TOKEN_NAME'), $newRefreshToken);
+
+        $jwtHolder = JWTHolder::getInstance();
+        $jwtHolder->setJWTData($refreshValidation["data"]);
+
         return;
-    }
-
-
-    // 쿠키에 담긴 jwt 검증, 디코드 된 jwt 내용 리턴
-    public function checkJWT()
-    {
-        $accessToken = $_COOKIE[getenv('ACCESS_TOKEN_NAME')] ?? null;
-
-        $accessValidation = [];
-
-        if (!empty($accessToken)) {
-            $accessValidation = $this->validateJWT($accessToken);
-
-            if (empty($accessValidation["data"]["uid"])) {
-                // 응답 반환 및 스크립트 종료
-                $this->sendResponse(401, 'ATokenEnd', '다시 시도해주세요.');
-            }
-        }
-
-        return $accessValidation;
     }
 
     // 쿠키 생성
@@ -269,13 +259,14 @@ class UtilPack
         return $this->db;
     }
 
-    // 프로세스 종료시
+    // !!!!! 프로세스 종료시 필수 사용, 트랜젝션 마지막 처리
     // 일반적인 요청실패시 400
     // 인증실패시 401
     // 나머지 404
     public function sendResponse(int $statusCode, string $status, string $message, array $data = null, array $headers = null): void
     {
-        $response = Services::response();
+        // $response = service('response');
+        $request = service('request');
 
         if ($statusCode >= 404 && ENVIRONMENT !== 'development') {
             $statusCode = 404;
@@ -298,25 +289,32 @@ class UtilPack
         // 응답 헤더 설정 (필요한 경우)
         if (!empty($headers)) {
             foreach ($headers as $name => $value) {
-                $response->setHeader($name, $value);
+                $this->response->setHeader($name, $value);
             }
         }
 
+        // !!!!! 컨트롤러 종료시
+        if (strtoupper($request->getMethod()) !== 'GET') {
+            // 트랜잭션 종료 및 결과 처리
+            $this->endTransaction();
+        }
+
         // 응답 설정
-        $response
+        $this->response
             ->setStatusCode($statusCode)
             ->setJSON($responseArray)
             ->send(); // 즉시 응답 반환 및 종료
 
-        return;
-
+        exit();
     }
 
     // 접근 권한 체크 && 토큰이 있어야만 접근가능한 페이지 체크
-    public function checkAuthLevel(string $authData, array $conditions)
+    public function checkAuthLevel(array $conditions)
     {
+        $jwtHolder = JWTHolder::getInstance();
+        $authData = $jwtHolder->getJWTData();
 
-        if (empty($authData)) {
+        if (empty($authData["ulv"])) {
             $this->sendResponse(404, 'N', "잘못된 요청입니다.");
         }
 
@@ -326,9 +324,9 @@ class UtilPack
         // ];
 
         // authData를 그룹과 레벨로 분리
-        $authData_arr = explode("_", $authData);
+        $authData_arr = explode("_", $authData["ulv"]);
         $authGroup = !empty($authData_arr[0]) ? $authData_arr[0] : "";
-        $authLevel = !empty($authData_arr[1]) ? $authData_arr[1] : 0;
+        $authLevel = !empty((int)$authData_arr[1]) ? (int)$authData_arr[1] : 0;
 
         // 조건 중 하나라도 만족하면 통과
         foreach ($conditions as $condition) {
