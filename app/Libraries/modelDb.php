@@ -34,6 +34,9 @@ class modelDb
             // 유효성 검사 오류 가져오기
             $validationErrors = $model->errors();
 
+            // 유효성 검사 오류 값들만 추출
+            $errorMessages = $validationErrors ? array_values($validationErrors) : ["추가에 실패했습니다."];
+
             $error = $db->error()['message'] ?? "!!UNKNOWN ERROR!!"; // ['code' => SQL 상태 코드, 'message' => 에러 메시지]
 
             // 트랜잭션 롤백
@@ -43,7 +46,7 @@ class modelDb
             log_message('critical', "\n\n !!!!! insert_MDB Error - | $message \n| LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . "\n $error \n| SQL | $lastQuery \n\n");
 
             // 404 에러 반환
-            $this->utilPack->sendResponse(404, 'N', "추가에 실패했습니다.");
+            $this->utilPack->sendResponse(404, 'N', implode(",", $errorMessages));
 
         }
 
@@ -156,8 +159,13 @@ class modelDb
                 // 트랜잭션 롤백
                 $db->transRollback();
 
+                // 유효성 검사 오류 가져오기
+                $validationErrors = $model->errors();
+                // 유효성 검사 오류 값들만 추출
+                $errorMessages = $validationErrors ? array_values($validationErrors) : ["입력을 다시 확인해주세요."];
+
                 // 404 에러 반환
-                $this->utilPack->sendResponse(400, 'N', "입력을 다시 확인해주세요.");
+                $this->utilPack->sendResponse(400, 'N', implode(",", $errorMessages));
             }
         }
 
