@@ -1,17 +1,21 @@
 <?php
 
 namespace App\Controllers;
+use App\Controllers\Top\PageTopController;
 
-class Home extends BaseController
+class Home extends PageTopController
 {
-    public function index(): string
+    public function index()
     {
-        return view('welcome_message');
+
+
+
+        return view('welcome_message2');
     }
 
 
 
-    // public function getTiest()
+    // public function getTest()
     // {
 
     //     // 예시 데이터

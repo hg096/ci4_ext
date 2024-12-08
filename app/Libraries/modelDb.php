@@ -45,9 +45,14 @@ class modelDb
             // 오류 로그 남기기
             log_message('critical', "\n\n !!!!! insert_MDB Error - | $message \n| LOG | " . json_encode($validationErrors, JSON_UNESCAPED_UNICODE) . "\n $error \n| SQL | $lastQuery \n\n");
 
-            // 404 에러 반환
-            $this->utilPack->sendResponse(404, 'N', implode(",", $errorMessages));
 
+            // 요청이 /api/로 시작하는 경우와 그렇지 않은 경우 분기 처리
+            $uri = current_url();
+            if (strpos($uri, '/api/') === 0) {
+                $this->utilPack->sendResponse(404, 'N', implode(",", $errorMessages));
+            } else {
+                return false;
+            }
         }
 
         // 성공 시 추가된 레코드의 ID 반환
@@ -154,7 +159,7 @@ class modelDb
                 // $validationErrors = $validation->getErrors();
 
                 // 유효성 검사 실패 시 로그를 남기고 트랜잭션 롤백
-                log_message('critical', "\n\n !!!!! update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE)."\n\n");
+                log_message('critical', "\n\n !!!!! update_MDB validation - | $message | LOG | " . json_encode($validation->getErrors(), JSON_UNESCAPED_UNICODE) . "\n\n");
 
                 // 트랜잭션 롤백
                 $db->transRollback();
@@ -164,8 +169,13 @@ class modelDb
                 // 유효성 검사 오류 값들만 추출
                 $errorMessages = $validationErrors ? array_values($validationErrors) : ["입력을 다시 확인해주세요."];
 
-                // 404 에러 반환
-                $this->utilPack->sendResponse(400, 'N', implode(",", $errorMessages));
+                // 요청이 /api/로 시작하는 경우와 그렇지 않은 경우 분기 처리
+                $uri = current_url();
+                if (strpos($uri, '/api/') === 0) {
+                    $this->utilPack->sendResponse(404, 'N', implode(",", $errorMessages));
+                } else {
+                    return false;
+                }
             }
         }
 
@@ -209,8 +219,13 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 404 에러 반환
-            $this->utilPack->sendResponse(404, 'N', '수정에 실패했습니다.');
+            // 요청이 /api/로 시작하는 경우와 그렇지 않은 경우 분기 처리
+            $uri = current_url();
+            if (strpos($uri, '/api/') === 0) {
+                $this->utilPack->sendResponse(404, 'N', '수정에 실패했습니다.');
+            } else {
+                return false;
+            }
         }
 
         // 쿼리 성공 시 결과 반환
@@ -277,8 +292,13 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 404 에러 반환
-            $this->utilPack->sendResponse(404, 'N', '삭제에 실패했습니다.');
+            // 요청이 /api/로 시작하는 경우와 그렇지 않은 경우 분기 처리
+            $uri = current_url();
+            if (strpos($uri, '/api/') === 0) {
+                $this->utilPack->sendResponse(404, 'N', '삭제에 실패했습니다.');
+            } else {
+                return false;
+            }
         }
 
         // 쿼리 성공 시 결과 반환
@@ -322,8 +342,13 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 404 에러 반환
-            $this->utilPack->sendResponse(404, 'N', '삭제에 실패했습니다.');
+            // 요청이 /api/로 시작하는 경우와 그렇지 않은 경우 분기 처리
+            $uri = current_url();
+            if (strpos($uri, '/api/') === 0) {
+                $this->utilPack->sendResponse(404, 'N', '삭제에 실패했습니다.');
+            } else {
+                return false;
+            }
         }
 
         // 성공 시 결과 반환
@@ -350,8 +375,13 @@ class modelDb
             // 트랜잭션 롤백
             $db->transRollback();
 
-            // 404 에러 반환
-            $this->utilPack->sendResponse(404, 'N', '조회에 실패했습니다.');
+            // 요청이 /api/로 시작하는 경우와 그렇지 않은 경우 분기 처리
+            $uri = current_url();
+            if (strpos($uri, '/api/') === 0) {
+                $this->utilPack->sendResponse(404, 'N', '조회에 실패했습니다.');
+            } else {
+                return [];
+            }
         }
 
         if (empty($query->getResultArray())) {
